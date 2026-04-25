@@ -54,7 +54,7 @@ function LoadPreviewChart({ params, totalRps }: { params: SimulationParams; tota
   return (
     <div className="bg-gray-50 rounded-lg p-1.5 mt-1">
       <p className="text-[9px] text-gray-400 mb-0.5 uppercase tracking-wider">Load Preview (RPS)</p>
-      <svg width={W} height={H} className="overflow-visible">
+      <svg viewBox="0 0 220 60" className="w-full h-15 overflow-visible">
         <g transform={`translate(${PAD.left},${PAD.top})`}>
           {yTicks.map((t) => (
             <g key={t}>
@@ -93,13 +93,17 @@ export default function SimulationControls({
 
   return (
     <div className="space-y-4">
-      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-        Simulation Parameters
-      </h3>
+
+      <div className="flex items-center gap-2 px-1">
+        <div className="w-0.5 h-5 rounded-full bg-linear-to-b from-teal-500 to-cyan-500" />
+        <h3 className="text-base font-semibold bg-linear-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
+          Simulation Parameters
+        </h3>
+      </div>
 
       <div className="space-y-3">
         {/* Concurrent Users */}
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 bg-white border rounded-lg p-3 shadow-sm">
           <div className="flex justify-between">
             <Label className="text-xs">Concurrent Users</Label>
             <span className="text-xs font-mono text-gray-500">
@@ -132,7 +136,7 @@ export default function SimulationControls({
         </div>
 
         {/* Requests per second per user */}
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 bg-white border rounded-lg p-3 shadow-sm">
           <div className="flex justify-between">
             <Label className="text-xs">Requests/sec/user</Label>
             <span className="text-xs font-mono text-gray-500">
@@ -166,7 +170,7 @@ export default function SimulationControls({
         </div>
 
         {/* Payload Size */}
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 bg-white border rounded-lg p-3 shadow-sm">
           <div className="flex justify-between">
             <Label className="text-xs">Payload Size (MB)</Label>
             <span className="text-xs font-mono text-gray-500">
@@ -190,17 +194,18 @@ export default function SimulationControls({
         </div>
 
         {/* Load Profile */}
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 bg-white border rounded-lg p-3 shadow-sm">
           <Label className="text-xs">Load Profile</Label>
           <div className="grid grid-cols-3 gap-1">
             {(['constant', 'sine', 'repeating_spike'] as LoadProfile[]).map((p) => (
               <button
                 key={p}
                 onClick={() => onParamsChange({ ...params, loadProfile: p })}
-                className={`text-[10px] px-1.5 py-1 rounded border transition-colors font-medium ${
+                className={`text-[10px] px-2 py-1.5 rounded-md border transition-all duration-200 font-medium text-center leading-tight wrap-break-word 
+                style={{ wordBreak: 'break-word' }} ${
                   params.loadProfile === p
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white text-gray-600 border-gray-200 hover:border-blue-400'
+                    ? 'bg-blue-500/20 text-blue-800 border-blue-400 shadow-sm'
+                    : 'bg-white text-gray-600 border-gray-200 hover:border-blue-400 hover:bg-blue-50'
                 }`}
               >
                 {p === 'constant' ? 'Constant' : p === 'sine' ? 'Sine Wave' : 'Repeating Spike'}
@@ -241,7 +246,7 @@ export default function SimulationControls({
         </div>
 
         {/* Duration */}
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 bg-white border rounded-lg p-3 shadow-sm">
           <div className="flex justify-between">
             <Label className="text-xs">Duration (seconds)</Label>
             <span className="text-xs font-mono text-gray-500">
@@ -276,20 +281,20 @@ export default function SimulationControls({
       </div>
 
       {/* Summary */}
-      <div className="bg-gray-50 rounded-lg p-3 space-y-1">
+      <div className="bg-linear-to-br from-gray-50 to-gray-100 rounded-lg p-3 border space-y-1">
         <div className="flex justify-between text-xs">
           <span className="text-gray-500">Total RPS</span>
-          <span className="font-mono font-semibold">{totalRps.toLocaleString()}</span>
+          <span className="font-mono font-semibold text-blue-600">{totalRps.toLocaleString()}</span>
         </div>
         <div className="flex justify-between text-xs">
           <span className="text-gray-500">Total Requests</span>
-          <span className="font-mono font-semibold">
+          <span className="font-mono font-semibold text-blue-600">
             {(totalRps * params.simulationDurationSeconds).toLocaleString()}
           </span>
         </div>
         <div className="flex justify-between text-xs">
           <span className="text-gray-500">Data Transfer</span>
-          <span className="font-mono font-semibold">
+          <span className="font-mono font-semibold text-blue-600">
             {(totalRps * params.payloadSizeMB).toFixed(1)} MB/s
           </span>
         </div>
@@ -316,7 +321,10 @@ export default function SimulationControls({
         {!isRunning ? (
           <Button
             onClick={onRun}
-            className="flex-1 gap-2"
+            className="flex-1 gap-2 
+            bg-green-500/20 text-green-800 border border-green-200
+            hover:bg-green-500/10 hover:border-green-400
+            transition-all duration-200"
             size="sm"
           >
             <Play className="w-3 h-3" />
@@ -325,19 +333,26 @@ export default function SimulationControls({
         ) : (
           <Button
             onClick={onStop}
-            variant="destructive"
-            className="flex-1 gap-2"
+            className="flex-1 gap-2 
+            bg-red-500/20 text-red-800 border border-red-200
+            hover:bg-red-500/10 hover:border-red-400
+            transition-all duration-200"
             size="sm"
           >
             <Square className="w-3 h-3" />
             Stop
           </Button>
         )}
-        {hasResults && !isRunning && (
-          <Button variant="outline" size="sm" onClick={onReset}>
-            <RotateCcw className="w-3 h-3" />
-          </Button>
-        )}
+        <Button
+          size="sm"
+          onClick={onReset}
+          className="gap-2 
+          bg-yellow-500/20 text-yellow-500 border border-yellow-200
+          hover:bg-yellow-500/10 hover:border-yellow-400
+          transition-all duration-200"
+        >
+          <RotateCcw className="w-3 h-3" />
+        </Button>
       </div>
     </div>
   );

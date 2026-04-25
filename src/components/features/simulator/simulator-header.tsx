@@ -45,7 +45,7 @@ export default function SimulatorHeader({ selectedNodesCount, loadPreset }: Simu
 
       <div className="flex items-center gap-3">
         <Select onValueChange={loadPreset}>
-          <SelectTrigger className="h-8 text-xs w-[200px]">
+          <SelectTrigger className="h-8 text-xs w-50">
             <SelectValue placeholder="Load a preset..." />
           </SelectTrigger>
           <SelectContent>
@@ -61,7 +61,13 @@ export default function SimulatorHeader({ selectedNodesCount, loadPreset }: Simu
         </Select>
 
         <Link href="/guide">
-          <Button variant="outline" size="sm" className="gap-2">
+          <Button
+            size="sm"
+            className="gap-2 
+            bg-teal-500/20 text-teal-800 border border-teal-200
+            hover:bg-teal-500/10 hover:border-teal-400
+            font-medium transition-all duration-200"
+          >
             <BookOpen className="w-3 h-3" />
             Get Started
           </Button>
