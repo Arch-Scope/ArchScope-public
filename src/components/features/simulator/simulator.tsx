@@ -66,6 +66,7 @@ export default function Simulator() {
     handleRunSimulation,
     stopSimulation,
     handleReset,
+    handleFastForward,
   } = simulation;
 
   // Switch to report tab when simulation starts
@@ -300,6 +301,7 @@ export default function Simulator() {
           simulationResult={simulationResult}
           liveTimeSeries={liveTimeSeries}
           isRunning={isRunning}
+          handleFastForward={handleFastForward}
         />
       </div>
     </div>

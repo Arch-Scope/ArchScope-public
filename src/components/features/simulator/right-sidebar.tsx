@@ -23,6 +23,7 @@ interface RightSidebarProps {
   simulationResult: any;
   liveTimeSeries: any;
   isRunning: boolean;
+  handleFastForward: () => void;
 }
 
 export default function RightSidebar({
@@ -36,6 +37,7 @@ export default function RightSidebar({
   simulationResult,
   liveTimeSeries,
   isRunning,
+  handleFastForward,
 }: RightSidebarProps) {
   return (
     <div className="border-l bg-white flex flex-col flex-shrink-0" style={{ width: rightPanelSize }}>
@@ -72,7 +74,7 @@ export default function RightSidebar({
         </TabsContent>
 
         <TabsContent value="report" className="flex-1 overflow-hidden m-0">
-          <ReportPanel result={simulationResult} liveTimeSeries={liveTimeSeries} isRunning={isRunning} />
+          <ReportPanel result={simulationResult} liveTimeSeries={liveTimeSeries} isRunning={isRunning} handleFastForward={handleFastForward} />
         </TabsContent>
       </Tabs>
     </div>

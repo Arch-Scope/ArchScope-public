@@ -6,6 +6,7 @@ import { COMPONENT_COLORS } from '@/lib/services';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Button } from '@/components/ui/button';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -16,6 +17,7 @@ import {
   Zap,
   XCircle,
   ShieldAlert,
+  FastForward,
 } from 'lucide-react';
 import { PieChart, Pie, Cell, Legend, ResponsiveContainer, Tooltip } from 'recharts';
 
@@ -23,41 +25,93 @@ interface ReportPanelProps {
   result: SimulationResult | null;
   liveTimeSeries?: TimeSeriesDataPoint[];
   isRunning?: boolean;
+  handleFastForward?: () => void;
 }
 
-export default function ReportPanel({ result, liveTimeSeries = [], isRunning = false }: ReportPanelProps) {
+function SimulationHeader({ status, handleFastForward }: { status: string; handleFastForward?: () => void }) {
+  return (
+    <div className="flex items-center justify-between gap-2 text-blue-600">
+      <div className="flex items-center gap-2">
+        <Activity className="w-4 h-4 animate-pulse" />
+        <span className="text-xs font-semibold uppercase tracking-wider">{status}</span>
+      </div>
+      {handleFastForward && (
+        <Button
+          onClick={handleFastForward}
+          size="sm"
+          variant="outline"
+          className="h-7 text-xs gap-1"
+        >
+          <FastForward className="w-3 h-3" />
+          Fast Forward
+        </Button>
+      )}
+    </div>
+  );
+}
+
+export default function ReportPanel({ result, liveTimeSeries = [], isRunning = false, handleFastForward }: ReportPanelProps) {
   // While running but no final result yet — show live chart
   if (!result) {
-    if (isRunning && liveTimeSeries.length > 0) {
+    if (isRunning) {
       const totalSoFar = liveTimeSeries.reduce((s, p) => s + p.successful + p.failed + p.rateLimited + p.queued, 0);
       const successSoFar = liveTimeSeries.reduce((s, p) => s + p.successful, 0);
       const rlSoFar = liveTimeSeries.reduce((s, p) => s + p.rateLimited, 0);
       const queuedSoFar = liveTimeSeries.reduce((s, p) => s + p.queued, 0);
       const hasRL = rlSoFar > 0;
       const hasQueued = queuedSoFar > 0;
+      const isStarting = liveTimeSeries.length === 0;
+
       return (
         <ScrollArea className="h-full">
           <div className="p-5 space-y-5">
-            <div className="flex items-center gap-2 text-blue-600">
-              <Activity className="w-4 h-4 animate-pulse" />
-              <span className="text-xs font-semibold uppercase tracking-wider">Simulation Running…</span>
-            </div>
+            <SimulationHeader
+              status={isStarting ? "Starting Simulation…" : "Simulation Running…"}
+              handleFastForward={handleFastForward}
+            />
             <div className="grid grid-cols-2 gap-3">
-              <MetricCard icon={<Activity className="w-4 h-4 text-blue-500" />} label="Requests" value={totalSoFar.toLocaleString()} subValue="so far" />
-              <MetricCard icon={<Zap className="w-4 h-4 text-green-500" />} label="Successful" value={successSoFar.toLocaleString()} subValue={`${totalSoFar > 0 ? ((successSoFar / totalSoFar) * 100).toFixed(1) : 0}%`} />
-              {hasRL && <MetricCard icon={<ShieldAlert className="w-4 h-4 text-orange-500" />} label="Rate Limited" value={rlSoFar.toLocaleString()} subValue={`${totalSoFar > 0 ? ((rlSoFar / totalSoFar) * 100).toFixed(1) : 0}%`} alert />}
-              {hasQueued && <MetricCard icon={<ShieldAlert className="w-4 h-4 text-purple-500" />} label="Queued" value={queuedSoFar.toLocaleString()} subValue="buffered in queue" />}
+              <MetricCard
+                icon={<Activity className="w-4 h-4 text-blue-500" />}
+                label="Requests"
+                value={isStarting ? "0" : totalSoFar.toLocaleString()}
+                subValue={isStarting ? "initializing" : "so far"}
+              />
+              <MetricCard
+                icon={<Zap className="w-4 h-4 text-green-500" />}
+                label="Successful"
+                value={isStarting ? "0" : successSoFar.toLocaleString()}
+                subValue={isStarting ? "0%" : `${totalSoFar > 0 ? ((successSoFar / totalSoFar) * 100).toFixed(1) : 0}%`}
+              />
+              {!isStarting && hasRL && (
+                <MetricCard
+                  icon={<ShieldAlert className="w-4 h-4 text-orange-500" />}
+                  label="Rate Limited"
+                  value={rlSoFar.toLocaleString()}
+                  subValue={`${totalSoFar > 0 ? ((rlSoFar / totalSoFar) * 100).toFixed(1) : 0}%`}
+                  alert
+                />
+              )}
+              {!isStarting && hasQueued && (
+                <MetricCard
+                  icon={<ShieldAlert className="w-4 h-4 text-purple-500" />}
+                  label="Queued"
+                  value={queuedSoFar.toLocaleString()}
+                  subValue="buffered in queue"
+                />
+              )}
             </div>
-            <div>
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Requests Over Time (Live)</h3>
-              <TimeSeriesChart data={liveTimeSeries} />
-              <div className="flex gap-3 mt-2 flex-wrap">
-                <LegendDot color="#22c55e" label="Successful" />
-                <LegendDot color="#ef4444" label="Failed" />
-                {hasRL && <LegendDot color="#f97316" label="Rate Limited" />}
-                {hasQueued && <LegendDot color="#a855f7" label="Queued" />}
+            {!isStarting && (
+              <div>
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Requests Over Time (Live)</h3>
+                <TimeSeriesChart data={liveTimeSeries} />
+                <div className="flex gap-3 mt-2 flex-wrap">
+                  <LegendDot color="#22c55e" label="Successful" />
+                  <LegendDot color="#ef4444" label="Failed" />
+                  {hasRL && <LegendDot color="#f97316" label="Rate Limited" />}
+                  {hasQueued && <LegendDot color="#a855f7" label="Queued" />}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </ScrollArea>
       );

@@ -26,27 +26,17 @@ export function useSimulation(
     setSimProgress(null);
   }, []);
 
-  const handleRunSimulation = useCallback(() => {
-    stopSimulation();
-    setIsRunning(true);
-    setSimulationResult(null);
-    setLiveTimeSeries([]);
-    setSimProgress({ elapsed: 0, total: simulationParams.simulationDurationSeconds });
-
-    const ctx = prepareSimulation(nodes, edges, simulationParams);
-    simContextRef.current = ctx;
-    simTickRef.current = { second: 0, series: [] };
-
-    setNodes((nds) =>
-      nds.map((n) => ({
-        ...n,
-        data: { ...n.data, metrics: ctx.nodeMetrics[n.id] || undefined },
-      }))
-    );
+  const startSimulationInterval = useCallback((
+    ctx: SimulationContext,
+    startSecond: number,
+    startSeries: TimeSeriesDataPoint[],
+    tickIntervalMs: number
+  ) => {
+    simTickRef.current = { second: startSecond, series: startSeries };
+    const duration = simulationParams.simulationDurationSeconds;
 
     simIntervalRef.current = setInterval(() => {
       const { second, series } = simTickRef.current;
-      const duration = simulationParams.simulationDurationSeconds;
 
       const point = simulateTick(ctx, second);
       const newSeries = [...series, point];
@@ -63,8 +53,28 @@ export function useSimulation(
         setIsRunning(false);
         setSimProgress(null);
       }
-    }, 1000);
-  }, [nodes, edges, simulationParams, setNodes, stopSimulation]);
+    }, tickIntervalMs);
+  }, [simulationParams, stopSimulation]);
+
+  const handleRunSimulation = useCallback(() => {
+    stopSimulation();
+    setIsRunning(true);
+    setSimulationResult(null);
+    setLiveTimeSeries([]);
+    setSimProgress({ elapsed: 0, total: simulationParams.simulationDurationSeconds });
+
+    const ctx = prepareSimulation(nodes, edges, simulationParams);
+    simContextRef.current = ctx;
+
+    setNodes((nds) =>
+      nds.map((n) => ({
+        ...n,
+        data: { ...n.data, metrics: ctx.nodeMetrics[n.id] || undefined },
+      }))
+    );
+
+    startSimulationInterval(ctx, 0, [], 1000);
+  }, [nodes, edges, simulationParams, setNodes, stopSimulation, startSimulationInterval]);
 
   const handleReset = useCallback(() => {
     setSimulationResult(null);
@@ -75,6 +85,36 @@ export function useSimulation(
       }))
     );
   }, [setNodes]);
+
+  const handleFastForward = useCallback(() => {
+    stopSimulation();
+    setIsRunning(true);
+    setSimulationResult(null);
+    // Don't clear liveTimeSeries and simProgress - preserve them to avoid blank flash
+    const duration = simulationParams.simulationDurationSeconds;
+
+    const ctx = prepareSimulation(nodes, edges, simulationParams);
+    simContextRef.current = ctx;
+
+    // Start from where we left off or from 0
+    const currentSecond = simTickRef.current.second;
+    const currentSeries = simTickRef.current.series;
+
+    setNodes((nds) =>
+      nds.map((n) => ({
+        ...n,
+        data: { ...n.data, metrics: ctx.nodeMetrics[n.id] || undefined },
+      }))
+    );
+
+    // Calculate speed to complete in 2 seconds
+    const targetDurationMs = 2000;
+    const remainingDuration = duration - currentSecond;
+    const speedMultiplier = remainingDuration / (targetDurationMs / 1000);
+    const tickIntervalMs = Math.max(10, Math.floor(1000 / speedMultiplier));
+
+    startSimulationInterval(ctx, currentSecond, currentSeries, tickIntervalMs);
+  }, [nodes, edges, simulationParams, setNodes, stopSimulation, startSimulationInterval]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -94,5 +134,6 @@ export function useSimulation(
     handleRunSimulation,
     stopSimulation,
     handleReset,
+    handleFastForward,
   };
 }
