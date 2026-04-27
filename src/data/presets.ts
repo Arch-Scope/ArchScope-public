@@ -2,7 +2,7 @@ import { DesignPreset } from '@/types';
 
 export const PRESETS: DesignPreset[] = [
   {
-    id: 'url-shortener',
+    id: 'Url Shortener',
     name: 'URL Shortener',
     description: 'Shorten long URLs and redirect via short codes',
     simulationParams: {

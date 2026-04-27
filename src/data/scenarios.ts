@@ -119,7 +119,7 @@ const ECOMMERCE_RESPONSES_ORDER = [
 
 export const SCENARIOS: Scenario[] = [
   {
-    id: 'url-shortener',
+    id: 'Url Shortener',
     name: 'URL Shortener',
     description: 'Shorten long URLs and redirect via short codes',
     endpoints: [

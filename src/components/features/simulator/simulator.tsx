@@ -219,11 +219,30 @@ export default function Simulator() {
     alert('Design saved to DB!');
   }, [nodes, edges]);
 
+  const handleResetCanvas = useCallback(() => {
+    const confirmReset = confirm('Clear entire canvas?');
+
+    if (!confirmReset) return;
+
+    setNodes([]);
+    setEdges([]);
+  }, [setNodes, setEdges]);
+
+  const handleLoadDesigns = useCallback((design: any) => {
+    if (!design) return;
+
+    setNodes(design.nodes);
+    setEdges(design.edges);
+  }, [setNodes, setEdges]);
+
   // Render
   return (
     <div className="h-screen w-screen flex flex-col bg-gray-50">
-      <SimulatorHeader selectedNodesCount={selectedNodes.length} loadPreset={loadPreset} />
-
+      <SimulatorHeader
+        selectedNodesCount={selectedNodes.length}
+        loadPreset={loadPreset}
+        handleLoadDesigns={handleLoadDesigns}
+      />
       <div className="flex-1 flex overflow-hidden">
         {/* Left Sidebar - Simulation Controls */}
         <div className="border-r bg-white flex flex-col flex-shrink-0" style={{ width: leftPanel.size }}>
@@ -275,6 +294,8 @@ export default function Simulator() {
           isMinimapCollapsed={isMinimapCollapsed}
           setIsMinimapCollapsed={setIsMinimapCollapsed}
           handleSaveDesign={handleSaveDesign}
+          handleResetCanvas={handleResetCanvas}
+          loadPreset={loadPreset}
         />
 
         {/* Right Resize Handle */}

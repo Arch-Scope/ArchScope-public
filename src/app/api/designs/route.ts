@@ -22,3 +22,18 @@ export async function POST(req: Request) {
 
   return Response.json({ design });
 }
+
+export async function GET(req: Request) {
+  const user = getUserFromRequest(req);
+
+  if (!user) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const designs = await prisma.design.findMany({
+    where: { userId: user.userId },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  return Response.json({ designs });
+}
