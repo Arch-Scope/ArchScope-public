@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { Node, Edge } from '@xyflow/react';
 import { SimulationNodeData, SimulationParams, SimulationResult, TimeSeriesDataPoint } from '@/types';
 import { prepareSimulation, simulateTick, finalizeSimulation, SimulationContext } from '@/lib/core';
+import { calculateLayout} from '@/lib/utils/layout';
 
 export function useSimulation(
   nodes: Node<SimulationNodeData>[],
@@ -16,6 +17,7 @@ export function useSimulation(
   const simIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const simContextRef = useRef<SimulationContext | null>(null);
   const simTickRef = useRef<{ second: number; series: TimeSeriesDataPoint[] }>({ second: 0, series: [] });
+  const originalPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
 
   const stopSimulation = useCallback(() => {
     if (simIntervalRef.current) {
@@ -63,14 +65,26 @@ export function useSimulation(
     setLiveTimeSeries([]);
     setSimProgress({ elapsed: 0, total: simulationParams.simulationDurationSeconds });
 
+    // Save original positions
+    originalPositionsRef.current = new Map(
+      nodes.map(n => [n.id, { x: n.position.x, y: n.position.y }])
+    );
+
     const ctx = prepareSimulation(nodes, edges, simulationParams);
     simContextRef.current = ctx;
 
+    // Calculate expanded layout to accommodate metrics
+    const layoutPositions = calculateLayout(nodes, edges, true);
+
     setNodes((nds) =>
-      nds.map((n) => ({
-        ...n,
-        data: { ...n.data, metrics: ctx.nodeMetrics[n.id] || undefined },
-      }))
+      nds.map((n) => {
+        const pos = layoutPositions.get(n.id);
+        return {
+          ...n,
+          position: pos || n.position,
+          data: { ...n.data, metrics: ctx.nodeMetrics[n.id] || undefined },
+        };
+      })
     );
 
     startSimulationInterval(ctx, 0, [], 1000);
@@ -79,10 +93,14 @@ export function useSimulation(
   const handleReset = useCallback(() => {
     setSimulationResult(null);
     setNodes((nds) =>
-      nds.map((n) => ({
-        ...n,
-        data: { ...n.data, metrics: undefined },
-      }))
+      nds.map((n) => {
+        const originalPos = originalPositionsRef.current.get(n.id);
+        return {
+          ...n,
+          position: originalPos || n.position,
+          data: { ...n.data, metrics: undefined },
+        };
+      })
     );
   }, [setNodes]);
 
@@ -93,6 +111,11 @@ export function useSimulation(
     // Don't clear liveTimeSeries and simProgress - preserve them to avoid blank flash
     const duration = simulationParams.simulationDurationSeconds;
 
+    // Save original positions
+    originalPositionsRef.current = new Map(
+      nodes.map(n => [n.id, { x: n.position.x, y: n.position.y }])
+    );
+
     const ctx = prepareSimulation(nodes, edges, simulationParams);
     simContextRef.current = ctx;
 
@@ -100,11 +123,18 @@ export function useSimulation(
     const currentSecond = simTickRef.current.second;
     const currentSeries = simTickRef.current.series;
 
+    // Calculate expanded layout to accommodate metrics
+    const layoutPositions = calculateLayout(nodes, edges, true);
+
     setNodes((nds) =>
-      nds.map((n) => ({
-        ...n,
-        data: { ...n.data, metrics: ctx.nodeMetrics[n.id] || undefined },
-      }))
+      nds.map((n) => {
+        const pos = layoutPositions.get(n.id);
+        return {
+          ...n,
+          position: pos || n.position,
+          data: { ...n.data, metrics: ctx.nodeMetrics[n.id] || undefined },
+        };
+      })
     );
 
     // Calculate speed to complete in 2 seconds

@@ -106,14 +106,6 @@ function InfraNode({ data, selected }: NodeProps) {
                 {utilization.toFixed(0)}%
               </span>
             </div>
-            <div className="flex items-center justify-between text-[10px]">
-              <span className="text-gray-500">Cost/mo</span>
-              <span className="font-mono font-medium text-gray-700">
-                ${metrics.costPerMonth < 1
-                  ? metrics.costPerMonth.toFixed(4)
-                  : metrics.costPerMonth.toFixed(2)}
-              </span>
-            </div>
             {/* Utilization bar */}
             <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden mt-1">
               <div
