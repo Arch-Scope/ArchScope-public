@@ -21,11 +21,15 @@ import { useSimulation } from './hooks/useSimulation';
 import { useSelection } from './hooks/useSelection';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useNodeEvents } from './hooks/useNodeEvents';
+import { useDesigns } from '@/hooks/useDesigns';
+import SaveModal from './save-modal';
+import CanvasTopBar from './canvas-topbar';
 
 export default function Simulator() {
   // Local State
   const [rightTab, setRightTab] = useState('components');
   const [isMinimapCollapsed, setIsMinimapCollapsed] = useState(false);
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
 
   // Custom Hooks - State Management
   const simulatorState = useSimulatorState();
@@ -54,6 +58,13 @@ export default function Simulator() {
     paste,
     saveToHistory,
   } = simulatorState;
+
+  const {
+    saveDesign,
+    loadDesign,
+    currentDesignId,
+    clearCurrentDesign
+  } = useDesigns(nodes, edges);
 
   // Custom Hooks - Simulation Logic
   const simulation = useSimulation(nodes, edges, simulationParams, setNodes);
@@ -185,40 +196,6 @@ export default function Simulator() {
     [simulatorState, saveToHistory, setSimulationParams, setSimulationResult, setSelectedNode, setSelectedNodes, reactFlowRef]
   );
 
-  const handleSaveDesign = useCallback(async () => {
-    const token = localStorage.getItem('token');
-
-    if (!token) {
-      alert('Please login to save designs');
-      return;
-    }
-
-    const name = prompt('Enter design name');
-    if (!name) return;
-
-    const res = await fetch('/api/designs', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        name,
-        nodes,
-        edges,
-      }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      alert(data.error);
-      return;
-    }
-
-    alert('Design saved to DB!');
-  }, [nodes, edges]);
-
   const handleResetCanvas = useCallback(() => {
     const confirmReset = confirm('Clear entire canvas?');
 
@@ -228,24 +205,17 @@ export default function Simulator() {
     setEdges([]);
   }, [setNodes, setEdges]);
 
-  const handleLoadDesigns = useCallback((design: any) => {
-    if (!design) return;
-
-    setNodes(design.nodes);
-    setEdges(design.edges);
-  }, [setNodes, setEdges]);
-
   // Render
   return (
     <div className="h-screen w-screen flex flex-col bg-gray-50">
       <SimulatorHeader
         selectedNodesCount={selectedNodes.length}
         loadPreset={loadPreset}
-        handleLoadDesigns={handleLoadDesigns}
+        handleLoadDesigns={(design) => loadDesign(design, setNodes, setEdges)}
       />
       <div className="flex-1 flex overflow-hidden">
         {/* Left Sidebar - Simulation Controls */}
-        <div className="border-r bg-white flex flex-col flex-shrink-0" style={{ width: leftPanel.size }}>
+        <div className="border-r bg-white flex flex-col shrink-0" style={{ width: leftPanel.size }}>
           <div className="p-3 overflow-y-auto flex-1">
             <SimulationControls
               params={simulationParams}
@@ -263,7 +233,7 @@ export default function Simulator() {
         {/* Left Resize Handle */}
         <div
           onMouseDown={leftPanel.onMouseDown}
-          className="w-1.5 flex-shrink-0 cursor-col-resize bg-gray-200 hover:bg-blue-400 active:bg-blue-500 transition-colors relative z-10 group"
+          className="w-1.5 shrink-0 cursor-col-resize bg-gray-200 hover:bg-blue-400 active:bg-blue-500 transition-colors relative z-10 group"
           style={{ touchAction: 'none' }}
         >
           <div className="absolute inset-y-0 -left-2 -right-2" />
@@ -273,35 +243,44 @@ export default function Simulator() {
           </div>
         </div>
 
-        <DiagramCanvas
-          nodes={memoizedNodes}
-          edges={memoizedEdges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          onNodeClick={onNodeClick}
-          onEdgeClick={onEdgeClick}
-          onPaneClick={onPaneClick}
-          onDragOver={onDragOver}
-          onDrop={onDrop}
-          reactFlowRef={reactFlowRef}
-          handleSelectionStart={handleSelectionStart}
-          handleSelectionMove={handleSelectionMove}
-          handleSelectionEnd={handleSelectionEnd}
-          setSelectedNodes={setSelectedNodes}
-          isSelecting={isSelecting}
-          selectionBox={selectionBox}
-          isMinimapCollapsed={isMinimapCollapsed}
-          setIsMinimapCollapsed={setIsMinimapCollapsed}
-          handleSaveDesign={handleSaveDesign}
-          handleResetCanvas={handleResetCanvas}
-          loadPreset={loadPreset}
-        />
+        {/* CENTER AREA */}
+        <div className="flex-1 flex flex-col">
+
+          {/* TOP BAR */}
+          <CanvasTopBar
+            loadPreset={loadPreset}
+            onSave={() => setIsSaveModalOpen(true)}
+            onReset={handleResetCanvas}
+          />
+
+          {/* CANVAS */}
+          <DiagramCanvas
+            nodes={memoizedNodes}
+            edges={memoizedEdges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            onNodeClick={onNodeClick}
+            onEdgeClick={onEdgeClick}
+            onPaneClick={onPaneClick}
+            onDragOver={onDragOver}
+            onDrop={onDrop}
+            reactFlowRef={reactFlowRef}
+            handleSelectionStart={handleSelectionStart}
+            handleSelectionMove={handleSelectionMove}
+            handleSelectionEnd={handleSelectionEnd}
+            setSelectedNodes={setSelectedNodes}
+            isSelecting={isSelecting}
+            selectionBox={selectionBox}
+            isMinimapCollapsed={isMinimapCollapsed}
+            setIsMinimapCollapsed={setIsMinimapCollapsed}
+          />
+        </div>
 
         {/* Right Resize Handle */}
         <div
           onMouseDown={rightPanel.onMouseDown}
-          className="w-1.5 flex-shrink-0 cursor-col-resize bg-gray-200 hover:bg-blue-400 active:bg-blue-500 transition-colors relative z-10 group"
+          className="w-1.5 shrink-0 cursor-col-resize bg-gray-200 hover:bg-blue-400 active:bg-blue-500 transition-colors relative z-10 group"
           style={{ touchAction: 'none' }}
         >
           <div className="absolute inset-y-0 -left-2 -right-2" />
@@ -325,6 +304,16 @@ export default function Simulator() {
           handleFastForward={handleFastForward}
         />
       </div>
+      <SaveModal
+        isOpen={isSaveModalOpen}
+        onClose={() => setIsSaveModalOpen(false)}
+        onUpdate={saveDesign}
+        onSaveAsNew={() => {
+          clearCurrentDesign();
+          saveDesign();
+        }}
+        hasExisting={!!currentDesignId}
+      />
     </div>
   );
 }
