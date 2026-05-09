@@ -23,7 +23,7 @@ export default function SimulationTopBar({
         {!isRunning ? (
           <Button
             onClick={onRun}
-            size="sm"
+           size="default"
             className="flex-1 gap-2 
             bg-green-500/20 text-green-800 border border-green-200
             hover:bg-green-500/10 hover:border-green-400
@@ -35,7 +35,7 @@ export default function SimulationTopBar({
         ) : (
           <Button
             onClick={onStop}
-            size="sm"
+           size="default"
             className="flex-1 gap-2 
             bg-red-500/20 text-red-800 border border-red-200
             hover:bg-red-500/10 hover:border-red-400
@@ -47,7 +47,7 @@ export default function SimulationTopBar({
         )}
 
         <Button
-          size="sm"
+         size="default"
           onClick={onReset}
           className="gap-2 
           bg-yellow-500/20 text-yellow-500 border border-yellow-200

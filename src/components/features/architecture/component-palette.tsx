@@ -51,11 +51,15 @@ export default function ComponentPalette({ onAddComponent }: ComponentPalettePro
   };
 
   return (
-    <div className="w-full h-full flex flex-col">
-      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-4 pt-3">
-        Components
-      </h3>
-      <ScrollArea className="flex-1 px-4 py-4">
+    <div className="w-full h-full flex flex-col space-y-4">
+      <div className="flex items-center gap-2 px-1">
+        <div className="w-0.5 h-5 rounded-full bg-linear-to-b from-teal-500 to-cyan-500" />
+
+        <h3 className="text-base font-semibold bg-linear-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
+          Components
+        </h3>
+      </div>
+      <ScrollArea className="flex-1 px-4 pb-4">
         <div className="grid grid-cols-2 gap-4 pb-2 pt-1">
           {COMPONENT_TYPES.map((type) => {
             const Icon = ICONS[type];

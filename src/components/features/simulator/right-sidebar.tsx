@@ -42,22 +42,52 @@ export default function RightSidebar({
   return (
     <div className="border-l bg-white flex flex-col flex-shrink-0" style={{ width: rightPanelSize }}>
       <Tabs value={rightTab} onValueChange={(val) => setRightTab(val as string)} className="flex flex-col h-full">
-        <TabsList className="flex-shrink-0 m-2 grid grid-cols-3 w-full">
-          <TabsTrigger value="components" className="text-xs gap-1">
-            <LayoutGrid className="w-3 h-3" />
-            Add
-          </TabsTrigger>
-          <TabsTrigger value="config" className="text-xs gap-1">
-            <Settings2 className="w-3 h-3" />
-            Config
-          </TabsTrigger>
-          <TabsTrigger value="report" className="text-xs gap-1">
-            <BarChart3 className="w-3 h-3" />
-            Report
-          </TabsTrigger>
-        </TabsList>
+        <div className="h-12 border-b bg-white flex items-center px-4">
+          <TabsList className="flex w-full gap-2 bg-transparent p-0 rounded-none">
+            <TabsTrigger
+              value="components"
+              className="
+              h-8 px-3 text-xs gap-1
+              bg-cyan-500/10 text-cyan-700 border border-cyan-200
+              hover:bg-cyan-500/20 hover:border-cyan-400
+              data-active:bg-cyan-500/20
+              data-active:text-cyan-900
+              data-active:border-cyan-400
+              font-medium transition-all duration-200"
+            >
+              <LayoutGrid className="w-3 h-3" />
+              Add
+            </TabsTrigger>
+            <TabsTrigger value="config" 
+              className="
+              h-8 px-3 text-xs gap-1
+              bg-cyan-500/10 text-cyan-700 border border-cyan-200
+              hover:bg-cyan-500/20 hover:border-cyan-400
+              data-active:bg-cyan-500/20
+              data-active:text-cyan-900
+              data-active:border-cyan-400
+              font-medium transition-all duration-200"
+            >
+              <Settings2 className="w-3 h-3" />
+              Config
+            </TabsTrigger>
+            <TabsTrigger value="report" 
+              className="
+              h-8 px-3 text-xs gap-1
+              bg-cyan-500/10 text-cyan-700 border border-cyan-200
+              hover:bg-cyan-500/20 hover:border-cyan-400
+              data-active:bg-cyan-500/20
+              data-active:text-cyan-900
+              data-active:border-cyan-400
+              font-medium transition-all duration-200"
+            >
+              <BarChart3 className="w-3 h-3" />
+              Report
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
-        <TabsContent value="components" className="flex-1 min-h-0 m-0 bg-gray-50">
+        <TabsContent value="components" className="flex-1 min-h-0 m-0 bg-white pt-4">
           <div className="h-full overflow-y-auto">
             <ComponentPalette onAddComponent={addComponent} />
           </div>

@@ -26,12 +26,12 @@ export default function CanvasTopBar({ loadPreset, onSave, onReset, selectedDesi
 
       <Select onValueChange={loadPreset}>
         <SelectTrigger
-          className="h-8 text-xs px-3
-          bg-pink-500/20 text-pink-800 border border-pink-200
-          hover:bg-pink-500/30 hover:border-pink-400
+          className="h-8 px-3
+          bg-cyan-500/10 text-cyan-700 border border-cyan-200
+          hover:bg-cyan-500/20 hover:border-cyan-400
           font-medium transition-all duration-200"
         >
-          <span className="font-medium">Presets</span>
+          <span>Presets</span>
         </SelectTrigger>
 
         <SelectContent
@@ -62,9 +62,10 @@ export default function CanvasTopBar({ loadPreset, onSave, onReset, selectedDesi
 
       {selectedDesignName && (
         <span className="
-          h-8 px-3 text-xs rounded-md
-          bg-gray-500/20 text-gray-700 border border-gray-200
-          font-medium inline-flex items-center
+          h-8 px-3 text-[13.5px] rounded-md
+          bg-cyan-500/10 text-cyan-700 border border-cyan-200
+          hover:bg-cyan-500/20 hover:border-cyan-400
+          inline-flex items-center transition-all duration-200
         ">
           {selectedDesignName}
         </span>
@@ -75,7 +76,7 @@ export default function CanvasTopBar({ loadPreset, onSave, onReset, selectedDesi
     <div className="flex items-center gap-2">
 
         <Button
-        size="sm"
+        size="default"
         onClick={onSave}
         className="bg-green-500/20 text-green-700 border border-green-200 
         hover:bg-green-500/30 hover:border-green-400
@@ -85,7 +86,7 @@ export default function CanvasTopBar({ loadPreset, onSave, onReset, selectedDesi
         </Button>
 
         <Button
-        size="sm"
+        size="default"
         onClick={onReset}
         className="bg-yellow-500/20 text-yellow-800 border border-yellow-200 
         hover:bg-yellow-500/30 hover:border-yellow-400
