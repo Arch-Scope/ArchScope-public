@@ -18,7 +18,7 @@ const g = globalThis as typeof globalThis & {
 if (!g.__rateLimitState) g.__rateLimitState = new Map();
 const rateLimitState = g.__rateLimitState;
 
-// ---------------- HELPERS ----------------
+// HELPERS 
 
 function checkRateLimit(node: any, now: number) {
     const algorithm = node.rateLimitAlgorithm ?? 'token_bucket';

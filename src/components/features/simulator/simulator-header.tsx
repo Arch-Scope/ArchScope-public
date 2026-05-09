@@ -148,10 +148,13 @@ export default function SimulatorHeader({ selectedNodesCount, loadPreset, handle
               <span>Settings</span>
             </button>
 
-            <button className="w-full flex items-center gap-2 px-3 py-2 rounded-md hover:bg-purple-500/10 hover:border-purple-300 border border-transparent text-sm transition-all">
+            <Link
+              href="/guide"
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-md hover:bg-purple-500/10 hover:border-purple-300 border border-transparent text-sm transition-all"
+            >
               <HelpCircle className="w-4 h-4 text-gray-600" />
               <span>Help</span>
-            </button>
+            </Link>
 
           </div>
         </div>
