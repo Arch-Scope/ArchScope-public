@@ -67,12 +67,12 @@ export default function SimulatorHeader({ selectedNodesCount, loadPreset, handle
       {/* CENTER (ABSOLUTE) */}
       {/* This stays perfectly centered regardless of left/right */}
       <Link
-        href="/about"
+        href="/"
         className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5 group"
       >
-        <Network className="w-5 h-5 text-gray-900" />
+        <Network className="w-6 h-6 text-gray-900" />
         <div className="px-2 py-1 rounded-lg hover:bg-purple-500/10 hover:border-purple-300 border border-transparent transition-colors">
-          <h1 className="text-lg font-semibold tracking-tight text-gray-900">
+          <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
             Arch<span className="text-cyan-600">Scope</span>
           </h1>
         </div>

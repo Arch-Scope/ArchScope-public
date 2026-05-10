@@ -6,8 +6,8 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Header */}
-      <header className="border-b bg-white/80 backdrop-blur-sm">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-center">
+      <header className="sticky top-0 z-50 border-b bg-white/80 backdrop-blur-sm">
+        <div className="h-12 max-w-7xl mx-auto px-4 flex items-center justify-center">
           <Link href="/">
             <div className="flex items-center gap-2 cursor-pointer">
               <Network className="w-6 h-6 text-gray-900" />
@@ -20,7 +20,7 @@ export default function Home() {
       </header>
 
       {/* Hero Section */}
-      <main className="max-w-6xl mx-auto px-6 py-20">
+      <main className="max-w-7xl mx-auto px-6 py-20">
         <div className="text-center space-y-6">
           <h2 className="text-5xl font-bold tracking-tight text-gray-900">
             Design. Simulate. Optimize.
@@ -33,12 +33,17 @@ export default function Home() {
           <div className="flex gap-4 justify-center pt-4">
             <Link href="/simulator">
               <Button size="lg" className="btn-cyan-variant">
-                Launch
+                Launch App
               </Button>
             </Link>
             <Link href="/guide">
               <Button size="lg" variant="outline">
-                View Guide
+                Get Started
+              </Button>
+            </Link>
+            <Link href="/about">
+              <Button size="lg" variant="outline">
+                About Us
               </Button>
             </Link>
           </div>
