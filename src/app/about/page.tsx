@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -16,41 +17,38 @@ import {
 } from 'lucide-react';
 
 export default function AboutPage() {
+  const router = useRouter();
   return (
     <div className="min-h-screen bg-gray-50">
 
       {/* HEADER */}
       <div className="bg-white border-b sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+        <div className="relative max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
 
           {/* LEFT */}
-          <div className="flex items-center gap-4">
-            <Link href="/">
-              <Button variant="ghost" size="sm">
-                <ArrowLeft className="w-4 h-4" />
-              </Button>
-            </Link>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.back()}
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+            <span className="text-md font-medium text-gray-500">
+              About
+            </span>
+          </div>
 
-            <div className="flex items-center gap-2">
-              <Network className="w-6 h-6 text-cyan-600" />
-
-              <h1 className="text-xl font-bold text-gray-900">
-                About <span className="text-cyan-600">ArchScope</span>
+          {/* CENTER LOGO */}
+          <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2">
+            <Network className="w-6 h-6 text-gray-900" />
+            <div className="px-2 py-1 rounded-lg">
+              <h1 className="text-2xl font-semibold tracking-tight">
+                <span className="text-gray-900">Arch</span>
+                <span className="text-cyan-600">Scope</span>
               </h1>
             </div>
           </div>
-
-          {/* RIGHT */}
-          <Link href="/">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2"
-            >
-              <Home className="w-4 h-4" />
-              Open App
-            </Button>
-          </Link>
         </div>
       </div>
 

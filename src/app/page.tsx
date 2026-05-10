@@ -7,13 +7,15 @@ export default function Home() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-white/80 backdrop-blur-sm">
-        <div className="h-12 max-w-7xl mx-auto px-4 flex items-center justify-center">
+        <div className="h-14.5 max-w-7xl mx-auto px-4 flex items-center justify-center">
           <Link href="/">
             <div className="flex items-center gap-2 cursor-pointer">
               <Network className="w-6 h-6 text-gray-900" />
-              <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
-                Arch<span className="text-cyan-600">Scope</span>
-              </h1>
+              <div className="px-2 py-1 rounded-lg">
+                <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
+                  Arch<span className="text-cyan-600">Scope</span>
+                </h1>
+              </div>
             </div>
           </Link>
         </div>
