@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Network, BookOpen, Menu, Folder, Settings, HelpCircle } from 'lucide-react';
+import { Network, BookOpen, Menu, Folder, Settings, HelpCircle, Info } from 'lucide-react';
 import AuthProfile from './auth-profile';
 
 interface SimulatorHeaderProps {
@@ -66,15 +66,17 @@ export default function SimulatorHeader({ selectedNodesCount, loadPreset, handle
 
       {/* CENTER (ABSOLUTE) */}
       {/* This stays perfectly centered regardless of left/right */}
-      <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5">
+      <Link
+        href="/about"
+        className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5 group"
+      >
         <Network className="w-5 h-5 text-gray-900" />
-        <Link href="/">
-          <div className="group cursor-pointer px-2 py-1 rounded-lg hover:bg-purple-500/10 hover:border-purple-300 border border-transparent transition-colors">
-            <h1 className="text-lg font-semibold tracking-tight text-gray-900">Arch<span className="text-cyan-600">Scope</span>
-            </h1>
-          </div>
-        </Link>
-      </div>
+        <div className="px-2 py-1 rounded-lg hover:bg-purple-500/10 hover:border-purple-300 border border-transparent transition-colors">
+          <h1 className="text-lg font-semibold tracking-tight text-gray-900">
+            Arch<span className="text-cyan-600">Scope</span>
+          </h1>
+        </div>
+      </Link>
 
       {/* RIGHT SECTION */}
       <div className="flex items-center gap-3">
@@ -151,6 +153,14 @@ export default function SimulatorHeader({ selectedNodesCount, loadPreset, handle
             </button>
 
             <Link
+              href="/about"
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-md hover:bg-purple-500/10 hover:border-purple-300 border border-transparent text-sm transition-all"
+            >
+              <Info className="w-4 h-4 text-gray-600" />
+              <span>About Us</span>
+            </Link>
+
+            <Link
               href="/guide"
               className="w-full flex items-center gap-2 px-3 py-2 rounded-md hover:bg-purple-500/10 hover:border-purple-300 border border-transparent text-sm transition-all"
             >
@@ -174,9 +184,9 @@ export default function SimulatorHeader({ selectedNodesCount, loadPreset, handle
           <div className="relative bg-white rounded-xl shadow-2xl w-100 p-4">
 
             <h2 className="inline-block mb-3 px-3 py-1.5 rounded-md
-bg-purple-500/20 text-purple-800 border border-purple-200
-hover:bg-purple-500/30 hover:border-purple-400
-font-medium text-sm transition-all duration-200">
+            bg-purple-500/20 text-purple-800 border border-purple-200
+            hover:bg-purple-500/30 hover:border-purple-400
+            font-medium text-sm transition-all duration-200">
               My Designs
             </h2>
 
