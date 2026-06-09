@@ -77,6 +77,8 @@ export const authService = {
     });
 
     if (!user) {
+      // Add artificial delay to mitigate timing attacks for email enumeration
+      await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 500));
       // Don't leak whether the email exists or not
       return { message: 'If an account with that email exists, we sent a password reset link.' };
     }
@@ -94,9 +96,11 @@ export const authService = {
       },
     });
 
-    // In a real setup, we would use the NEXT_PUBLIC_BASE_URL env var, but for testing fallback to localhost
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-    const resetLink = `${baseUrl}/reset-password?token=${resetToken}&email=${email}`;
+    const baseUrl = process.env.APP_URL;
+    if (!baseUrl) {
+      throw new Error('APP_URL is not configured in environment variables');
+    }
+    const resetLink = `${baseUrl}/reset-password?token=${user.id}.${resetToken}`;
     
     const { sendPasswordResetEmail } = await import('../utils/mailer');
     await sendPasswordResetEmail(email, resetLink);
@@ -105,14 +109,19 @@ export const authService = {
   },
 
   async resetPassword(data: any) {
-    const { email, token, newPassword } = data;
+    const { token, newPassword } = data;
 
-    if (!email || !token || !newPassword) {
-      throw new Error('Email, token, and new password are required');
+    if (!token || !newPassword) {
+      throw new Error('Token and new password are required');
+    }
+
+    const [userId, actualToken] = token.split('.');
+    if (!userId || !actualToken) {
+      throw new Error('Invalid reset token format');
     }
 
     const user = await prisma.user.findUnique({
-      where: { email },
+      where: { id: userId },
     });
 
     if (!user || !user.resetToken || !user.resetTokenExpiry) {
@@ -123,7 +132,7 @@ export const authService = {
       throw new Error('Reset token has expired');
     }
 
-    const isValid = await bcrypt.compare(token, user.resetToken);
+    const isValid = await bcrypt.compare(actualToken, user.resetToken);
     if (!isValid) {
       throw new Error('Invalid reset token');
     }
@@ -131,7 +140,7 @@ export const authService = {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     await prisma.user.update({
-      where: { email },
+      where: { id: userId },
       data: {
         password: hashedPassword,
         resetToken: null,

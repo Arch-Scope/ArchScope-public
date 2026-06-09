@@ -9,7 +9,6 @@ function ResetPasswordForm() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const token = searchParams.get('token');
-    const email = searchParams.get('email');
 
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -23,8 +22,24 @@ function ResetPasswordForm() {
             return;
         }
 
-        if (password.length < 6) {
-            setError('Password must be at least 6 characters');
+        if (password.length < 8) {
+            setError('Password must be at least 8 characters');
+            return;
+        }
+        if (!/[a-z]/.test(password)) {
+            setError('Must contain lowercase letter');
+            return;
+        }
+        if (!/[A-Z]/.test(password)) {
+            setError('Must contain uppercase letter');
+            return;
+        }
+        if (!/[0-9]/.test(password)) {
+            setError('Must contain a number');
+            return;
+        }
+        if (!/[^A-Za-z0-9]/.test(password)) {
+            setError('Must contain special character');
             return;
         }
 
@@ -37,7 +52,6 @@ function ResetPasswordForm() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     action: 'reset-password',
-                    email,
                     token,
                     newPassword: password,
                 }),
@@ -57,7 +71,7 @@ function ResetPasswordForm() {
         }
     }
 
-    if (!token || !email) {
+    if (!token) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
                 <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full text-center">

@@ -1,7 +1,9 @@
 import { Resend } from 'resend';
 
-// We fallback to a dummy key if env var is missing, but it will fail on send
-const resend = new Resend(process.env.RESEND_API_KEY || 're_dummy_key');
+if (!process.env.RESEND_API_KEY) {
+  throw new Error('RESEND_API_KEY is not configured in environment variables');
+}
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export const sendPasswordResetEmail = async (email: string, resetLink: string) => {
   try {
