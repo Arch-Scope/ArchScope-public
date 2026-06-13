@@ -17,6 +17,7 @@ export default function TerminalPanel({ onClose }: TerminalPanelProps) {
     { type: 'response', content: 'Type help for available commands' }
   ]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [shouldFocusInput, setShouldFocusInput] = useState(false);
   const endOfLogRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -25,23 +26,25 @@ export default function TerminalPanel({ onClose }: TerminalPanelProps) {
     endOfLogRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [logs]);
 
-  // Restore input focus when processing completes
+  // Restore input focus when needed (single focus management strategy)
   useEffect(() => {
-    if (!isProcessing) {
+    if (shouldFocusInput && !isProcessing) {
       inputRef.current?.focus();
+      setShouldFocusInput(false);
     }
-  }, [isProcessing]);
+  }, [shouldFocusInput, isProcessing]);
 
   const handleCommand = async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && input.trim()) {
-      const command = input.trim().toLowerCase();
+      const rawCommand = input.trim();
+      const normalizedCommand = rawCommand.toLowerCase();
       setInput('');
-      setLogs((prev) => [...prev, { type: 'command', content: input.trim() }]);
+      setLogs((prev) => [...prev, { type: 'command', content: rawCommand }]);
 
-      // Handle clear command locally
-      if (command === 'clear') {
+      // Handle clear command locally (use normalized command for matching)
+      if (normalizedCommand === 'clear') {
         setLogs([]);
-        setTimeout(() => inputRef.current?.focus(), 0);
+        setShouldFocusInput(true);
         return;
       }
 
@@ -51,7 +54,7 @@ export default function TerminalPanel({ onClose }: TerminalPanelProps) {
         const res = await fetch('/api/aql', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ command: input.trim() }),
+          body: JSON.stringify({ command: rawCommand }),
         });
 
         const data = await res.json();
@@ -65,7 +68,7 @@ export default function TerminalPanel({ onClose }: TerminalPanelProps) {
         setLogs((prev) => [...prev, { type: 'error', content: 'Network error or server unreachable' }]);
       } finally {
         setIsProcessing(false);
-        setTimeout(() => inputRef.current?.focus(), 0);
+        setShouldFocusInput(true);
       }
     }
   };
