@@ -4,10 +4,12 @@ import { X, Terminal, Trash2 } from 'lucide-react';
 interface TerminalPanelProps {
   onClose: () => void;
   onAddComponent?: (type: string, nodeId?: string, serviceId?: string, label?: string) => void;
-  onRemoveNode?: (nodeId: string) => void;
-  onConnectNodes?: (sourceId: string, targetId: string, animated?: boolean) => void;
-  onDisconnectNodes?: (sourceId: string, targetId: string) => void;
-  onRenameNode?: (nodeId: string, label: string) => void;
+  onRemoveNode?: (label: string) => void;
+  onConnectNodes?: (sourceLabel: string, targetLabel: string, animated?: boolean) => void;
+  onDisconnectNodes?: (sourceLabel: string, targetLabel: string) => void;
+  onRenameNode?: (oldLabel: string, newLabel: string) => void;
+  onShowNodes?: () => { label: string; type: string }[];
+  onShowConnections?: () => { source: string; target: string; animated: boolean }[];
 }
 
 interface LogEntry {
@@ -15,7 +17,7 @@ interface LogEntry {
   content: string;
 }
 
-export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, onConnectNodes, onDisconnectNodes, onRenameNode }: TerminalPanelProps) {
+export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, onConnectNodes, onDisconnectNodes, onRenameNode, onShowNodes, onShowConnections }: TerminalPanelProps) {
   const [input, setInput] = useState('');
   const [logs, setLogs] = useState<LogEntry[]>([
     { type: 'response', content: 'ArchScope Query Language (AQL) Terminal v1.0.0' },
@@ -75,6 +77,7 @@ export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, o
     if (e.key === 'Enter' && input.trim()) {
       const rawCommand = input.trim();
       const normalizedCommand = rawCommand.toLowerCase();
+      const parts = rawCommand.split(/\s+/);
       
       // Add command to history (avoid duplicates)
       if (rawCommand !== commandHistory[commandHistory.length - 1]) {
@@ -95,19 +98,57 @@ export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, o
       // Handle help command locally
       if (normalizedCommand === 'help') {
         setLogs((prev) => [...prev, { type: 'response', content: 'Available commands:' }]);
-        setLogs((prev) => [...prev, { type: 'response', content: '  add <type> [as <id>] [using <service>] [label "<label>"]' }]);
-        setLogs((prev) => [...prev, { type: 'response', content: '  remove <node_id>' }]);
+        setLogs((prev) => [...prev, { type: 'response', content: '  add <type> as <name>' }]);
+        setLogs((prev) => [...prev, { type: 'response', content: '  remove <name>' }]);
         setLogs((prev) => [...prev, { type: 'response', content: '  connect <source> to <target> [animated]' }]);
         setLogs((prev) => [...prev, { type: 'response', content: '  disconnect <source> from <target>' }]);
-        setLogs((prev) => [...prev, { type: 'response', content: '  rename <node_id> to "<label>"' }]);
+        setLogs((prev) => [...prev, { type: 'response', content: '  rename <name> to <new_name>' }]);
+        setLogs((prev) => [...prev, { type: 'response', content: '  show_nodes - List all nodes' }]);
+        setLogs((prev) => [...prev, { type: 'response', content: '  show_connections - List all connections' }]);
         setLogs((prev) => [...prev, { type: 'response', content: '  clear - Clear terminal' }]);
         setLogs((prev) => [...prev, { type: 'response', content: '  help - Show this help' }]);
         setShouldFocusInput(true);
         return;
       }
 
-      // Parse and handle architecture commands locally
-      const parts = rawCommand.split(/\s+/);
+      // Handle show_nodes command locally
+      if (normalizedCommand === 'show_nodes') {
+        if (onShowNodes) {
+          const nodes = onShowNodes();
+          if (nodes.length === 0) {
+            setLogs((prev) => [...prev, { type: 'response', content: 'No nodes in the architecture' }]);
+          } else {
+            setLogs((prev) => [...prev, { type: 'response', content: 'Nodes in architecture:' }]);
+            nodes.forEach((node) => {
+              setLogs((prev) => [...prev, { type: 'response', content: `  ${node.label} (${node.type})` }]);
+            });
+          }
+        } else {
+          setLogs((prev) => [...prev, { type: 'error', content: 'Error: Unable to list nodes' }]);
+        }
+        setShouldFocusInput(true);
+        return;
+      }
+
+      // Handle show_connections command locally
+      if (normalizedCommand === 'show_connections') {
+        if (onShowConnections) {
+          const connections = onShowConnections();
+          if (connections.length === 0) {
+            setLogs((prev) => [...prev, { type: 'response', content: 'No connections in the architecture' }]);
+          } else {
+            setLogs((prev) => [...prev, { type: 'response', content: 'Connections in architecture:' }]);
+            connections.forEach((conn) => {
+              setLogs((prev) => [...prev, { type: 'response', content: `  ${conn.source} -> ${conn.target}${conn.animated ? ' (animated)' : ''}` }]);
+            });
+          }
+        } else {
+          setLogs((prev) => [...prev, { type: 'error', content: 'Error: Unable to list connections' }]);
+        }
+        setShouldFocusInput(true);
+        return;
+      }
+
       const command = parts[0].toLowerCase();
       const hasHelpFlag = parts.includes('--help') || parts.includes('-h');
 
@@ -125,23 +166,23 @@ export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, o
           setLogs((prev) => [...prev, { type: 'response', content: '  notification_service - Sends notifications (push, email, etc.)' }]);
           setLogs((prev) => [...prev, { type: 'response', content: '  rate_limiter - Controls request rate to protect downstream services' }]);
           setLogs((prev) => [...prev, { type: 'response', content: '' }]);
-          setLogs((prev) => [...prev, { type: 'response', content: 'Usage: add <component_type> [as <node_id>] [using <service_id>] [label "<label>"]' }]);
+          setLogs((prev) => [...prev, { type: 'response', content: 'Usage: add <component_type> as <name>' }]);
         } else if (command === 'remove') {
           setLogs((prev) => [...prev, { type: 'response', content: 'Removes a node and all its connected edges from the architecture.' }]);
-          setLogs((prev) => [...prev, { type: 'response', content: 'Usage: remove <node_id>' }]);
+          setLogs((prev) => [...prev, { type: 'response', content: 'Usage: remove <name>' }]);
           setLogs((prev) => [...prev, { type: 'response', content: 'Example: remove api1' }]);
         } else if (command === 'connect') {
           setLogs((prev) => [...prev, { type: 'response', content: 'Creates a directed edge from one node to another.' }]);
-          setLogs((prev) => [...prev, { type: 'response', content: 'Usage: connect <source_id> to <target_id> [animated]' }]);
-          setLogs((prev) => [...prev, { type: 'response', content: 'Example: connect lb to api1 animated' }]);
+          setLogs((prev) => [...prev, { type: 'response', content: 'Usage: connect <source> to <target> [animated]' }]);
+          setLogs((prev) => [...prev, { type: 'response', content: 'Example: connect api1 to db animated' }]);
         } else if (command === 'disconnect') {
           setLogs((prev) => [...prev, { type: 'response', content: 'Removes the edge between two nodes.' }]);
-          setLogs((prev) => [...prev, { type: 'response', content: 'Usage: disconnect <source_id> from <target_id>' }]);
-          setLogs((prev) => [...prev, { type: 'response', content: 'Example: disconnect lb from api1' }]);
+          setLogs((prev) => [...prev, { type: 'response', content: 'Usage: disconnect <source> from <target>' }]);
+          setLogs((prev) => [...prev, { type: 'response', content: 'Example: disconnect api1 from db' }]);
         } else if (command === 'rename') {
           setLogs((prev) => [...prev, { type: 'response', content: 'Changes the display label of a node.' }]);
-          setLogs((prev) => [...prev, { type: 'response', content: 'Usage: rename <node_id> to "<new_label>"' }]);
-          setLogs((prev) => [...prev, { type: 'response', content: 'Example: rename api1 to "Auth API"' }]);
+          setLogs((prev) => [...prev, { type: 'response', content: 'Usage: rename <name> to <new_name>' }]);
+          setLogs((prev) => [...prev, { type: 'response', content: 'Example: rename api1 to auth_api' }]);
         } else {
           setLogs((prev) => [...prev, { type: 'response', content: `Unknown command: ${command}` }]);
           setLogs((prev) => [...prev, { type: 'response', content: 'Type "help" for available commands' }]);
@@ -150,7 +191,7 @@ export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, o
         return;
       }
 
-      // add <component_type> [as <node_id>] [using <service_id>] [label "<label>"]
+      // add <component_type> as <name>
       if (command === 'add') {
         const componentType = parts[1];
         if (!componentType) {
@@ -159,29 +200,18 @@ export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, o
           return;
         }
 
-        let nodeId: string | undefined;
-        let serviceId: string | undefined;
-        let label: string | undefined;
+        const asIndex = parts.findIndex(p => p.toLowerCase() === 'as');
+        const name = asIndex !== -1 ? parts[asIndex + 1] : undefined;
 
-        let i = 2;
-        while (i < parts.length) {
-          if (parts[i] === 'as' && parts[i + 1]) {
-            nodeId = parts[i + 1];
-            i += 2;
-          } else if (parts[i] === 'using' && parts[i + 1]) {
-            serviceId = parts[i + 1];
-            i += 2;
-          } else if (parts[i] === 'label' && parts[i + 1]) {
-            label = parts[i + 1].replace(/"/g, '');
-            i += 2;
-          } else {
-            i++;
-          }
+        if (!name) {
+          setLogs((prev) => [...prev, { type: 'error', content: 'Error: name is required for add command' }]);
+          setShouldFocusInput(true);
+          return;
         }
 
         if (onAddComponent) {
-          onAddComponent(componentType, nodeId, serviceId, label);
-          setLogs((prev) => [...prev, { type: 'response', content: `Added ${componentType}${nodeId ? ` as ${nodeId}` : ''}` }]);
+          onAddComponent(componentType, undefined, undefined, name);
+          setLogs((prev) => [...prev, { type: 'response', content: `Added ${componentType} as ${name}` }]);
         } else {
           setLogs((prev) => [...prev, { type: 'error', content: 'Error: Architecture commands not available' }]);
         }
@@ -189,18 +219,18 @@ export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, o
         return;
       }
 
-      // remove <node_id>
+      // remove <name>
       if (command === 'remove') {
-        const nodeId = parts[1];
-        if (!nodeId) {
-          setLogs((prev) => [...prev, { type: 'error', content: 'Error: node_id is required for remove command' }]);
+        const name = parts[1];
+        if (!name) {
+          setLogs((prev) => [...prev, { type: 'error', content: 'Error: name is required for remove command' }]);
           setShouldFocusInput(true);
           return;
         }
 
         if (onRemoveNode) {
-          onRemoveNode(nodeId);
-          setLogs((prev) => [...prev, { type: 'response', content: `Removed node ${nodeId}` }]);
+          onRemoveNode(name);
+          setLogs((prev) => [...prev, { type: 'response', content: `Removed ${name}` }]);
         } else {
           setLogs((prev) => [...prev, { type: 'error', content: 'Error: Architecture commands not available' }]);
         }
@@ -208,15 +238,15 @@ export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, o
         return;
       }
 
-      // connect <source_id> to <target_id> [animated]
+      // connect <source> to <target> [animated]
       if (command === 'connect') {
-        const sourceId = parts[1];
+        const source = parts[1];
         const targetIndex = parts.findIndex(p => p.toLowerCase() === 'to');
-        const targetId = targetIndex !== -1 ? parts[targetIndex + 1] : undefined;
+        const target = targetIndex !== -1 ? parts[targetIndex + 1] : undefined;
         const animatedIndex = parts.findIndex(p => p.toLowerCase() === 'animated');
 
-        if (!sourceId || !targetId) {
-          setLogs((prev) => [...prev, { type: 'error', content: 'Error: source_id and target_id are required for connect command' }]);
+        if (!source || !target) {
+          setLogs((prev) => [...prev, { type: 'error', content: 'Error: source and target are required for connect command' }]);
           setShouldFocusInput(true);
           return;
         }
@@ -224,8 +254,8 @@ export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, o
         const animated = animatedIndex !== -1;
 
         if (onConnectNodes) {
-          onConnectNodes(sourceId, targetId, animated);
-          setLogs((prev) => [...prev, { type: 'response', content: `Connected ${sourceId} to ${targetId}${animated ? ' (animated)' : ''}` }]);
+          onConnectNodes(source, target, animated);
+          setLogs((prev) => [...prev, { type: 'response', content: `Connected ${source} to ${target}${animated ? ' (animated)' : ''}` }]);
         } else {
           setLogs((prev) => [...prev, { type: 'error', content: 'Error: Architecture commands not available' }]);
         }
@@ -233,21 +263,21 @@ export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, o
         return;
       }
 
-      // disconnect <source_id> from <target_id>
+      // disconnect <source> from <target>
       if (command === 'disconnect') {
-        const sourceId = parts[1];
+        const source = parts[1];
         const targetIndex = parts.findIndex(p => p.toLowerCase() === 'from');
-        const targetId = targetIndex !== -1 ? parts[targetIndex + 1] : undefined;
+        const target = targetIndex !== -1 ? parts[targetIndex + 1] : undefined;
 
-        if (!sourceId || !targetId) {
-          setLogs((prev) => [...prev, { type: 'error', content: 'Error: source_id and target_id are required for disconnect command' }]);
+        if (!source || !target) {
+          setLogs((prev) => [...prev, { type: 'error', content: 'Error: source and target are required for disconnect command' }]);
           setShouldFocusInput(true);
           return;
         }
 
         if (onDisconnectNodes) {
-          onDisconnectNodes(sourceId, targetId);
-          setLogs((prev) => [...prev, { type: 'response', content: `Disconnected ${sourceId} from ${targetId}` }]);
+          onDisconnectNodes(source, target);
+          setLogs((prev) => [...prev, { type: 'response', content: `Disconnected ${source} from ${target}` }]);
         } else {
           setLogs((prev) => [...prev, { type: 'error', content: 'Error: Architecture commands not available' }]);
         }
@@ -255,21 +285,21 @@ export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, o
         return;
       }
 
-      // rename <node_id> to "<new_label>"
+      // rename <name> to <new_name>
       if (command === 'rename') {
-        const nodeId = parts[1];
+        const oldName = parts[1];
         const targetIndex = parts.findIndex(p => p.toLowerCase() === 'to');
-        const label = targetIndex !== -1 ? parts[targetIndex + 1].replace(/"/g, '') : undefined;
+        const newName = targetIndex !== -1 ? parts[targetIndex + 1] : undefined;
 
-        if (!nodeId || !label) {
-          setLogs((prev) => [...prev, { type: 'error', content: 'Error: node_id and new label are required for rename command' }]);
+        if (!oldName || !newName) {
+          setLogs((prev) => [...prev, { type: 'error', content: 'Error: old name and new name are required for rename command' }]);
           setShouldFocusInput(true);
           return;
         }
 
         if (onRenameNode) {
-          onRenameNode(nodeId, label);
-          setLogs((prev) => [...prev, { type: 'response', content: `Renamed ${nodeId} to "${label}"` }]);
+          onRenameNode(oldName, newName);
+          setLogs((prev) => [...prev, { type: 'response', content: `Renamed ${oldName} to ${newName}` }]);
         } else {
           setLogs((prev) => [...prev, { type: 'error', content: 'Error: Architecture commands not available' }]);
         }

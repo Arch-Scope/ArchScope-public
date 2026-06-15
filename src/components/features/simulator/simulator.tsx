@@ -93,57 +93,118 @@ export default function Simulator() {
     }
   }, [isRunning, setRightTab]);
 
+  // Helper function to find node by label
+  const findNodeByLabel = useCallback((label: string) => {
+    return nodes.find((n) => n.data.label === label);
+  }, [nodes]);
+
   // AQL Architecture Command Handlers
   const handleAddComponent = useCallback((type: string, nodeId?: string, serviceId?: string, label?: string) => {
     const componentType = type as any; // ComponentType
-    if (nodeId) {
-      // Custom node ID - need to manually create the node
-      const newNode: Node<SimulationNodeData> = {
-        id: nodeId,
-        type: 'infra',
-        position: { x: 250 + Math.random() * 200, y: 100 + nodes.length * 120 },
-        data: {
-          label: label || COMPONENT_LABELS[componentType as keyof typeof COMPONENT_LABELS] || type,
-          componentType: componentType,
-          config: {
-            serviceId: serviceId || COMPONENT_DEFAULTS[componentType as keyof typeof COMPONENT_DEFAULTS],
-            cacheHitRate: componentType === 'cache' ? 0.8 : undefined,
-            queueProcessingTimeMs: componentType === 'message_queue' ? 100 : undefined,
-          },
-        },
-      };
-      setNodes((nds) => [...nds, newNode]);
-      setTimeout(() => saveToHistory(), 50);
-    } else {
-      // Use default addComponent
-      addComponent(componentType);
+    if (!label) {
+      label = COMPONENT_LABELS[componentType as keyof typeof COMPONENT_LABELS] || type;
     }
+    
+    // Use label as the node ID
+    const newNode: Node<SimulationNodeData> = {
+      id: label,
+      type: 'infra',
+      position: { x: 250 + Math.random() * 200, y: 100 + nodes.length * 120 },
+      data: {
+        label: label,
+        componentType: componentType,
+        config: {
+          serviceId: serviceId || COMPONENT_DEFAULTS[componentType as keyof typeof COMPONENT_DEFAULTS],
+          cacheHitRate: componentType === 'cache' ? 0.8 : undefined,
+          queueProcessingTimeMs: componentType === 'message_queue' ? 100 : undefined,
+        },
+      },
+    };
+    setNodes((nds) => [...nds, newNode]);
+    setTimeout(() => saveToHistory(), 50);
   }, [addComponent, nodes.length, setNodes, saveToHistory]);
 
-  const handleRemoveNode = useCallback((nodeId: string) => {
-    deleteNode(nodeId);
-  }, [deleteNode]);
+  const handleRemoveNode = useCallback((label: string) => {
+    const node = findNodeByLabel(label);
+    if (node) {
+      deleteNode(node.id);
+    }
+  }, [deleteNode, findNodeByLabel]);
 
-  const handleConnectNodes = useCallback((sourceId: string, targetId: string, animated?: boolean) => {
+  const handleConnectNodes = useCallback((sourceLabel: string, targetLabel: string, animated?: boolean) => {
+    const sourceNode = findNodeByLabel(sourceLabel);
+    const targetNode = findNodeByLabel(targetLabel);
+    
+    if (!sourceNode || !targetNode) {
+      return;
+    }
+    
     const newEdge: Edge = {
       id: `edge_${Date.now()}_${Math.random()}`,
-      source: sourceId,
-      target: targetId,
+      source: sourceNode.id,
+      target: targetNode.id,
       animated: animated || false,
       style: { stroke: '#94a3b8', strokeWidth: 2 },
     };
     setEdges((eds) => [...eds, newEdge]);
     setTimeout(() => saveToHistory(), 50);
-  }, [setEdges, saveToHistory]);
+  }, [setEdges, saveToHistory, findNodeByLabel]);
 
-  const handleDisconnectNodes = useCallback((sourceId: string, targetId: string) => {
-    setEdges((eds) => eds.filter((e) => !(e.source === sourceId && e.target === targetId)));
+  const handleDisconnectNodes = useCallback((sourceLabel: string, targetLabel: string) => {
+    const sourceNode = findNodeByLabel(sourceLabel);
+    const targetNode = findNodeByLabel(targetLabel);
+    
+    if (!sourceNode || !targetNode) {
+      return;
+    }
+    
+    setEdges((eds) => eds.filter((e) => !(e.source === sourceNode.id && e.target === targetNode.id)));
     setTimeout(() => saveToHistory(), 50);
-  }, [setEdges, saveToHistory]);
+  }, [setEdges, saveToHistory, findNodeByLabel]);
 
-  const handleRenameNode = useCallback((nodeId: string, label: string) => {
-    updateNode(nodeId, { label });
-  }, [updateNode]);
+  const handleRenameNode = useCallback((oldLabel: string, newLabel: string) => {
+    const node = findNodeByLabel(oldLabel);
+    if (node) {
+      updateNode(node.id, { label: newLabel });
+      // Update the node ID to match the new label
+      setNodes((nds) => nds.map((n) => {
+        if (n.id === node.id) {
+          return { ...n, id: newLabel };
+        }
+        return n;
+      }));
+      // Update edges to use the new ID
+      setEdges((eds) => eds.map((e) => {
+        if (e.source === node.id) {
+          return { ...e, source: newLabel };
+        }
+        if (e.target === node.id) {
+          return { ...e, target: newLabel };
+        }
+        return e;
+      }));
+      setTimeout(() => saveToHistory(), 50);
+    }
+  }, [updateNode, findNodeByLabel, setNodes, setEdges, saveToHistory]);
+
+  const handleShowNodes = useCallback(() => {
+    return nodes.map((n) => ({
+      label: n.data.label,
+      type: n.data.componentType,
+    }));
+  }, [nodes]);
+
+  const handleShowConnections = useCallback(() => {
+    return edges.map((e) => {
+      const sourceNode = nodes.find((n) => n.id === e.source);
+      const targetNode = nodes.find((n) => n.id === e.target);
+      return {
+        source: sourceNode?.data.label || e.source,
+        target: targetNode?.data.label || e.target,
+        animated: e.animated || false,
+      };
+    });
+  }, [edges, nodes]);
 
   // Custom Hooks - Selection & Events
   const selection = useSelection(nodes, reactFlowRef);
@@ -368,6 +429,8 @@ export default function Simulator() {
               onConnectNodes={handleConnectNodes}
               onDisconnectNodes={handleDisconnectNodes}
               onRenameNode={handleRenameNode}
+              onShowNodes={handleShowNodes}
+              onShowConnections={handleShowConnections}
             />
           )}
         </div>
