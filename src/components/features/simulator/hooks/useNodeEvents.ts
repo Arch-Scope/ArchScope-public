@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { Node, Edge, Connection, ReactFlowInstance, addEdge } from '@xyflow/react';
+import { Node, Edge, Connection, ReactFlowInstance } from '@xyflow/react';
 import { SimulationNodeData, ComponentType } from '@/types';
 
 interface UseNodeEventsProps {
@@ -64,15 +64,25 @@ export function useNodeEvents({
 
   const onConnect = useCallback(
     (params: Connection) => {
-      setEdges((eds: any) =>
-        addEdge(
-          {
-            ...params,
-            style: { stroke: '#94a3b8', strokeWidth: 2 },
-          } as any,
-          eds
-        )
-      );
+      if (!params.source || !params.target) return;
+      
+      // Deterministic edge ID based on source and target
+      const edgeId = `edge_${params.source}_${params.target}`;
+      
+      setEdges((eds: Edge[]) => {
+        // Check if edge already exists
+        const exists = eds.some((e) => e.source === params.source && e.target === params.target);
+        if (exists) return eds;
+        
+        const newEdge: Edge = {
+          id: edgeId,
+          source: params.source,
+          target: params.target,
+          animated: false,
+          style: { stroke: '#94a3b8', strokeWidth: 2 },
+        };
+        return [...eds, newEdge];
+      });
       setTimeout(() => {
         saveToHistory();
       }, 50);

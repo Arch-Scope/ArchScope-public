@@ -226,13 +226,17 @@ export function useSimulatorState() {
       };
     });
 
-    const newEdges = clipboard.edges.map((edge) => ({
-      ...edge,
-      id: `edge_${Date.now()}_${Math.random()}`,
-      source: idMap[edge.source] || edge.source,
-      target: idMap[edge.target] || edge.target,
-      style: { stroke: '#94a3b8', strokeWidth: 2 },
-    }));
+    const newEdges = clipboard.edges.map((edge) => {
+      const newSource = idMap[edge.source] || edge.source;
+      const newTarget = idMap[edge.target] || edge.target;
+      return {
+        ...edge,
+        id: `edge_${newSource}_${newTarget}`,
+        source: newSource,
+        target: newTarget,
+        style: { stroke: '#94a3b8', strokeWidth: 2 },
+      };
+    });
 
     saveToHistory();
     setNodes((prev) => [...prev, ...newNodes]);
@@ -240,7 +244,7 @@ export function useSimulatorState() {
 
     const pastedNodeIds = newNodes.map((node) => node.id);
     setSelectedNodes(pastedNodeIds);
-  }, [clipboard, saveToHistory]);
+  }, [clipboard, saveToHistory, setNodes, setEdges, setSelectedNodes]);
 
   const cut = useCallback(() => {
     // Handle single node select
@@ -265,7 +269,7 @@ export function useSimulatorState() {
       setSelectedNodes([]);
       setSelectedEdge(null);
     }
-  }, [selectedNodes, selectedNode, copy, saveToHistory]);
+  }, [selectedNodes, selectedNode, copy, saveToHistory, setNodes, setEdges, setSelectedNode, setSelectedNodes, setSelectedEdge]);
 
   return {
     nodes,

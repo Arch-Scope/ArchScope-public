@@ -1,13 +1,21 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Terminal, Trash2 } from 'lucide-react';
+import { COMPONENT_LABELS } from '@/lib/services';
+
+type ComponentType = keyof typeof COMPONENT_LABELS;
+
+type CommandResult = {
+  success: boolean;
+  message: string;
+};
 
 interface TerminalPanelProps {
   onClose: () => void;
-  onAddComponent?: (type: string, nodeId?: string, serviceId?: string, label?: string) => void;
-  onRemoveNode?: (label: string) => void;
-  onConnectNodes?: (sourceLabel: string, targetLabel: string, animated?: boolean) => void;
-  onDisconnectNodes?: (sourceLabel: string, targetLabel: string) => void;
-  onRenameNode?: (oldLabel: string, newLabel: string) => void;
+  onAddComponent?: (type: string, nodeId?: string, serviceId?: string, label?: string) => CommandResult;
+  onRemoveNode?: (label: string) => CommandResult;
+  onConnectNodes?: (sourceLabel: string, targetLabel: string, animated?: boolean) => CommandResult;
+  onDisconnectNodes?: (sourceLabel: string, targetLabel: string) => CommandResult;
+  onRenameNode?: (oldLabel: string, newLabel: string) => CommandResult;
   onShowNodes?: () => { label: string; type: string }[];
   onShowConnections?: () => { source: string; target: string; animated: boolean }[];
 }
@@ -97,16 +105,19 @@ export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, o
 
       // Handle help command locally
       if (normalizedCommand === 'help') {
-        setLogs((prev) => [...prev, { type: 'response', content: 'Available commands:' }]);
-        setLogs((prev) => [...prev, { type: 'response', content: '  add <type> as <name>' }]);
-        setLogs((prev) => [...prev, { type: 'response', content: '  remove <name>' }]);
-        setLogs((prev) => [...prev, { type: 'response', content: '  connect <source> to <target> [animated]' }]);
-        setLogs((prev) => [...prev, { type: 'response', content: '  disconnect <source> from <target>' }]);
-        setLogs((prev) => [...prev, { type: 'response', content: '  rename <name> to <new_name>' }]);
-        setLogs((prev) => [...prev, { type: 'response', content: '  show_nodes - List all nodes' }]);
-        setLogs((prev) => [...prev, { type: 'response', content: '  show_connections - List all connections' }]);
-        setLogs((prev) => [...prev, { type: 'response', content: '  clear - Clear terminal' }]);
-        setLogs((prev) => [...prev, { type: 'response', content: '  help - Show this help' }]);
+        setLogs((prev) => [
+          ...prev,
+          { type: 'response', content: 'Available commands:' },
+          { type: 'response', content: '  add <type> as <name>' },
+          { type: 'response', content: '  remove <name>' },
+          { type: 'response', content: '  connect <source> to <target> [animated]' },
+          { type: 'response', content: '  disconnect <source> from <target>' },
+          { type: 'response', content: '  rename <name> to <new_name>' },
+          { type: 'response', content: '  show_nodes - List all nodes' },
+          { type: 'response', content: '  show_connections - List all connections' },
+          { type: 'response', content: '  clear - Clear terminal' },
+          { type: 'response', content: '  help - Show this help' },
+        ]);
         setShouldFocusInput(true);
         return;
       }
@@ -118,10 +129,15 @@ export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, o
           if (nodes.length === 0) {
             setLogs((prev) => [...prev, { type: 'response', content: 'No nodes in the architecture' }]);
           } else {
-            setLogs((prev) => [...prev, { type: 'response', content: 'Nodes in architecture:' }]);
-            nodes.forEach((node) => {
-              setLogs((prev) => [...prev, { type: 'response', content: `  ${node.label} (${node.type})` }]);
-            });
+            const nodeEntries = nodes.map((node) => ({
+              type: 'response' as const,
+              content: `  ${node.label} (${node.type})`,
+            }));
+            setLogs((prev) => [
+              ...prev,
+              { type: 'response', content: 'Nodes in architecture:' },
+              ...nodeEntries,
+            ]);
           }
         } else {
           setLogs((prev) => [...prev, { type: 'error', content: 'Error: Unable to list nodes' }]);
@@ -137,10 +153,15 @@ export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, o
           if (connections.length === 0) {
             setLogs((prev) => [...prev, { type: 'response', content: 'No connections in the architecture' }]);
           } else {
-            setLogs((prev) => [...prev, { type: 'response', content: 'Connections in architecture:' }]);
-            connections.forEach((conn) => {
-              setLogs((prev) => [...prev, { type: 'response', content: `  ${conn.source} -> ${conn.target}${conn.animated ? ' (animated)' : ''}` }]);
-            });
+            const connectionEntries = connections.map((conn) => ({
+              type: 'response' as const,
+              content: `  ${conn.source} -> ${conn.target}${conn.animated ? ' (animated)' : ''}`,
+            }));
+            setLogs((prev) => [
+              ...prev,
+              { type: 'response', content: 'Connections in architecture:' },
+              ...connectionEntries,
+            ]);
           }
         } else {
           setLogs((prev) => [...prev, { type: 'error', content: 'Error: Unable to list connections' }]);
@@ -155,37 +176,55 @@ export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, o
       // Handle --help flag for commands
       if (hasHelpFlag) {
         if (command === 'add') {
-          setLogs((prev) => [...prev, { type: 'response', content: 'Available component types:' }]);
-          setLogs((prev) => [...prev, { type: 'response', content: '  client - Represents end users or external clients' }]);
-          setLogs((prev) => [...prev, { type: 'response', content: '  load_balancer - Distributes traffic across multiple instances' }]);
-          setLogs((prev) => [...prev, { type: 'response', content: '  api_server - Handles API requests and business logic' }]);
-          setLogs((prev) => [...prev, { type: 'response', content: '  cache - Stores frequently accessed data for faster retrieval' }]);
-          setLogs((prev) => [...prev, { type: 'response', content: '  database - Stores and manages persistent data' }]);
-          setLogs((prev) => [...prev, { type: 'response', content: '  message_queue - Asynchronous message processing system' }]);
-          setLogs((prev) => [...prev, { type: 'response', content: '  worker - Background job processor' }]);
-          setLogs((prev) => [...prev, { type: 'response', content: '  notification_service - Sends notifications (push, email, etc.)' }]);
-          setLogs((prev) => [...prev, { type: 'response', content: '  rate_limiter - Controls request rate to protect downstream services' }]);
-          setLogs((prev) => [...prev, { type: 'response', content: '' }]);
-          setLogs((prev) => [...prev, { type: 'response', content: 'Usage: add <component_type> as <name>' }]);
+          setLogs((prev) => [
+            ...prev,
+            { type: 'response', content: 'Available component types:' },
+            { type: 'response', content: '  client - Represents end users or external clients' },
+            { type: 'response', content: '  load_balancer - Distributes traffic across multiple instances' },
+            { type: 'response', content: '  api_server - Handles API requests and business logic' },
+            { type: 'response', content: '  cache - Stores frequently accessed data for faster retrieval' },
+            { type: 'response', content: '  database - Stores and manages persistent data' },
+            { type: 'response', content: '  message_queue - Asynchronous message processing system' },
+            { type: 'response', content: '  worker - Background job processor' },
+            { type: 'response', content: '  notification_service - Sends notifications (push, email, etc.)' },
+            { type: 'response', content: '  rate_limiter - Controls request rate to protect downstream services' },
+            { type: 'response', content: '' },
+            { type: 'response', content: 'Usage: add <component_type> as <name>' },
+          ]);
         } else if (command === 'remove') {
-          setLogs((prev) => [...prev, { type: 'response', content: 'Removes a node and all its connected edges from the architecture.' }]);
-          setLogs((prev) => [...prev, { type: 'response', content: 'Usage: remove <name>' }]);
-          setLogs((prev) => [...prev, { type: 'response', content: 'Example: remove api1' }]);
+          setLogs((prev) => [
+            ...prev,
+            { type: 'response', content: 'Removes a node and all its connected edges from the architecture.' },
+            { type: 'response', content: 'Usage: remove <name>' },
+            { type: 'response', content: 'Example: remove api1' },
+          ]);
         } else if (command === 'connect') {
-          setLogs((prev) => [...prev, { type: 'response', content: 'Creates a directed edge from one node to another.' }]);
-          setLogs((prev) => [...prev, { type: 'response', content: 'Usage: connect <source> to <target> [animated]' }]);
-          setLogs((prev) => [...prev, { type: 'response', content: 'Example: connect api1 to db animated' }]);
+          setLogs((prev) => [
+            ...prev,
+            { type: 'response', content: 'Creates a directed edge from one node to another.' },
+            { type: 'response', content: 'Usage: connect <source> to <target> [animated]' },
+            { type: 'response', content: 'Example: connect api1 to db animated' },
+          ]);
         } else if (command === 'disconnect') {
-          setLogs((prev) => [...prev, { type: 'response', content: 'Removes the edge between two nodes.' }]);
-          setLogs((prev) => [...prev, { type: 'response', content: 'Usage: disconnect <source> from <target>' }]);
-          setLogs((prev) => [...prev, { type: 'response', content: 'Example: disconnect api1 from db' }]);
+          setLogs((prev) => [
+            ...prev,
+            { type: 'response', content: 'Removes the edge between two nodes.' },
+            { type: 'response', content: 'Usage: disconnect <source> from <target>' },
+            { type: 'response', content: 'Example: disconnect api1 from db' },
+          ]);
         } else if (command === 'rename') {
-          setLogs((prev) => [...prev, { type: 'response', content: 'Changes the display label of a node.' }]);
-          setLogs((prev) => [...prev, { type: 'response', content: 'Usage: rename <name> to <new_name>' }]);
-          setLogs((prev) => [...prev, { type: 'response', content: 'Example: rename api1 to auth_api' }]);
+          setLogs((prev) => [
+            ...prev,
+            { type: 'response', content: 'Changes the display label of a node.' },
+            { type: 'response', content: 'Usage: rename <name> to <new_name>' },
+            { type: 'response', content: 'Example: rename api1 to auth_api' },
+          ]);
         } else {
-          setLogs((prev) => [...prev, { type: 'response', content: `Unknown command: ${command}` }]);
-          setLogs((prev) => [...prev, { type: 'response', content: 'Type "help" for available commands' }]);
+          setLogs((prev) => [
+            ...prev,
+            { type: 'response', content: `Unknown command: ${command}` },
+            { type: 'response', content: 'Type "help" for available commands' },
+          ]);
         }
         setShouldFocusInput(true);
         return;
@@ -210,8 +249,11 @@ export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, o
         }
 
         if (onAddComponent) {
-          onAddComponent(componentType, undefined, undefined, name);
-          setLogs((prev) => [...prev, { type: 'response', content: `Added ${componentType} as ${name}` }]);
+          const result = onAddComponent(componentType, undefined, undefined, name);
+          setLogs((prev) => [
+            ...prev,
+            { type: result.success ? 'response' : 'error', content: result.message },
+          ]);
         } else {
           setLogs((prev) => [...prev, { type: 'error', content: 'Error: Architecture commands not available' }]);
         }
@@ -229,8 +271,11 @@ export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, o
         }
 
         if (onRemoveNode) {
-          onRemoveNode(name);
-          setLogs((prev) => [...prev, { type: 'response', content: `Removed ${name}` }]);
+          const result = onRemoveNode(name);
+          setLogs((prev) => [
+            ...prev,
+            { type: result.success ? 'response' : 'error', content: result.message },
+          ]);
         } else {
           setLogs((prev) => [...prev, { type: 'error', content: 'Error: Architecture commands not available' }]);
         }
@@ -254,8 +299,11 @@ export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, o
         const animated = animatedIndex !== -1;
 
         if (onConnectNodes) {
-          onConnectNodes(source, target, animated);
-          setLogs((prev) => [...prev, { type: 'response', content: `Connected ${source} to ${target}${animated ? ' (animated)' : ''}` }]);
+          const result = onConnectNodes(source, target, animated);
+          setLogs((prev) => [
+            ...prev,
+            { type: result.success ? 'response' : 'error', content: result.message },
+          ]);
         } else {
           setLogs((prev) => [...prev, { type: 'error', content: 'Error: Architecture commands not available' }]);
         }
@@ -276,8 +324,11 @@ export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, o
         }
 
         if (onDisconnectNodes) {
-          onDisconnectNodes(source, target);
-          setLogs((prev) => [...prev, { type: 'response', content: `Disconnected ${source} from ${target}` }]);
+          const result = onDisconnectNodes(source, target);
+          setLogs((prev) => [
+            ...prev,
+            { type: result.success ? 'response' : 'error', content: result.message },
+          ]);
         } else {
           setLogs((prev) => [...prev, { type: 'error', content: 'Error: Architecture commands not available' }]);
         }
@@ -298,8 +349,11 @@ export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, o
         }
 
         if (onRenameNode) {
-          onRenameNode(oldName, newName);
-          setLogs((prev) => [...prev, { type: 'response', content: `Renamed ${oldName} to ${newName}` }]);
+          const result = onRenameNode(oldName, newName);
+          setLogs((prev) => [
+            ...prev,
+            { type: result.success ? 'response' : 'error', content: result.message },
+          ]);
         } else {
           setLogs((prev) => [...prev, { type: 'error', content: 'Error: Architecture commands not available' }]);
         }
