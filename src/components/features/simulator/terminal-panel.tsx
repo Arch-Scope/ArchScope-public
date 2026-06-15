@@ -18,6 +18,10 @@ interface TerminalPanelProps {
   onRenameNode?: (oldLabel: string, newLabel: string) => CommandResult;
   onShowNodes?: () => { label: string; type: string }[];
   onShowConnections?: () => { source: string; target: string; animated: boolean }[];
+  onSetConfig?: (command: string) => CommandResult;
+  onMultiConfig?: (command: string) => CommandResult;
+  onResetConfig?: (command: string) => CommandResult;
+  height?: number;
 }
 
 interface LogEntry {
@@ -25,7 +29,7 @@ interface LogEntry {
   content: string;
 }
 
-export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, onConnectNodes, onDisconnectNodes, onRenameNode, onShowNodes, onShowConnections }: TerminalPanelProps) {
+export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, onConnectNodes, onDisconnectNodes, onRenameNode, onShowNodes, onShowConnections, onSetConfig, onMultiConfig, onResetConfig, height = 288 }: TerminalPanelProps) {
   const [input, setInput] = useState('');
   const [logs, setLogs] = useState<LogEntry[]>([
     { type: 'response', content: 'ArchScope Query Language (AQL) Terminal v1.0.0' },
@@ -108,13 +112,20 @@ export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, o
         setLogs((prev) => [
           ...prev,
           { type: 'response', content: 'Available commands:' },
+          { type: 'response', content: 'Architecture:' },
           { type: 'response', content: '  add <type> as <name>' },
           { type: 'response', content: '  remove <name>' },
           { type: 'response', content: '  connect <source> to <target> [animated]' },
           { type: 'response', content: '  disconnect <source> from <target>' },
           { type: 'response', content: '  rename <name> to <new_name>' },
+          { type: 'response', content: 'Configuration:' },
+          { type: 'response', content: '  set <label> <property> = <value>' },
+          { type: 'response', content: '  config <label> { <property>: <value>, ... }' },
+          { type: 'response', content: '  reset config <label>' },
+          { type: 'response', content: 'Query:' },
           { type: 'response', content: '  show_nodes - List all nodes' },
           { type: 'response', content: '  show_connections - List all connections' },
+          { type: 'response', content: 'Other:' },
           { type: 'response', content: '  clear - Clear terminal' },
           { type: 'response', content: '  help - Show this help' },
         ]);
@@ -218,6 +229,57 @@ export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, o
             { type: 'response', content: 'Changes the display label of a node.' },
             { type: 'response', content: 'Usage: rename <name> to <new_name>' },
             { type: 'response', content: 'Example: rename api1 to auth_api' },
+          ]);
+        } else if (command === 'set') {
+          setLogs((prev) => [
+            ...prev,
+            { type: 'response', content: 'Sets a single property on a node.' },
+            { type: 'response', content: 'Usage: set <label> <property> = <value>' },
+            { type: 'response', content: '' },
+            { type: 'response', content: 'Available properties:' },
+            { type: 'response', content: '  latency - Override base latency (ms)' },
+            { type: 'response', content: '  maxRps - Override max requests/second' },
+            { type: 'response', content: '  cost - Override cost per hour ($)' },
+            { type: 'response', content: '  hitRate - Cache hit rate (0-1, for cache)' },
+            { type: 'response', content: '  ttl - Cache TTL in seconds (for cache)' },
+            { type: 'response', content: '  maxMessages - Max queue depth (for message_queue)' },
+            { type: 'response', content: '  processingTime - Processing time per message (ms, for message_queue)' },
+            { type: 'response', content: '  algorithm - Rate limit algorithm (for rate_limiter)' },
+            { type: 'response', content: '  bucketSize - Token bucket size (for rate_limiter)' },
+            { type: 'response', content: '  refillRate - Token refill rate (for rate_limiter)' },
+            { type: 'response', content: '  windowSeconds - Window duration (for rate_limiter)' },
+            { type: 'response', content: '  maxRequests - Max requests per window (for rate_limiter)' },
+            { type: 'response', content: '  redisCounterTtl - Redis counter TTL (for rate_limiter)' },
+            { type: 'response', content: '' },
+            { type: 'response', content: 'Examples:' },
+            { type: 'response', content: '  set api1 latency = 20' },
+            { type: 'response', content: '  set redis1 hitRate = 0.90' },
+            { type: 'response', content: '  set rl algorithm = token_bucket' },
+          ]);
+        } else if (command === 'config') {
+          setLogs((prev) => [
+            ...prev,
+            { type: 'response', content: 'Sets multiple properties on a node in a single block.' },
+            { type: 'response', content: 'Usage: config <label> { <property>: <value>, ... }' },
+            { type: 'response', content: '' },
+            { type: 'response', content: 'Examples:' },
+            { type: 'response', content: '  config rl {' },
+            { type: 'response', content: '    algorithm: token_bucket,' },
+            { type: 'response', content: '    bucketSize: 500,' },
+            { type: 'response', content: '    refillRate: 100' },
+            { type: 'response', content: '  }' },
+            { type: 'response', content: '' },
+            { type: 'response', content: '  config redis1 {' },
+            { type: 'response', content: '    hitRate: 0.85,' },
+            { type: 'response', content: '    ttl: 600' },
+            { type: 'response', content: '  }' },
+          ]);
+        } else if (command === 'reset' && parts[1]?.toLowerCase() === 'config') {
+          setLogs((prev) => [
+            ...prev,
+            { type: 'response', content: 'Resets a node\'s config to its service defaults.' },
+            { type: 'response', content: 'Usage: reset config <label>' },
+            { type: 'response', content: 'Example: reset config api1' },
           ]);
         } else {
           setLogs((prev) => [
@@ -361,6 +423,51 @@ export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, o
         return;
       }
 
+      // set <node_id> <property> = <value>
+      if (command === 'set') {
+        if (onSetConfig) {
+          const result = onSetConfig(rawCommand);
+          setLogs((prev) => [
+            ...prev,
+            { type: result.success ? 'response' : 'error', content: result.message },
+          ]);
+        } else {
+          setLogs((prev) => [...prev, { type: 'error', content: 'Error: Configuration commands not available' }]);
+        }
+        setShouldFocusInput(true);
+        return;
+      }
+
+      // config <node_id> { <property>: <value>, ... }
+      if (command === 'config') {
+        if (onMultiConfig) {
+          const result = onMultiConfig(rawCommand);
+          setLogs((prev) => [
+            ...prev,
+            { type: result.success ? 'response' : 'error', content: result.message },
+          ]);
+        } else {
+          setLogs((prev) => [...prev, { type: 'error', content: 'Error: Configuration commands not available' }]);
+        }
+        setShouldFocusInput(true);
+        return;
+      }
+
+      // reset config <node_id>
+      if (command === 'reset' && parts[1]?.toLowerCase() === 'config') {
+        if (onResetConfig) {
+          const result = onResetConfig(rawCommand);
+          setLogs((prev) => [
+            ...prev,
+            { type: result.success ? 'response' : 'error', content: result.message },
+          ]);
+        } else {
+          setLogs((prev) => [...prev, { type: 'error', content: 'Error: Configuration commands not available' }]);
+        }
+        setShouldFocusInput(true);
+        return;
+      }
+
       // For other commands, send to API
       setIsProcessing(true);
 
@@ -388,7 +495,10 @@ export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, o
   };
 
   return (
-    <div className="h-72 w-full bg-white text-gray-800 flex flex-col font-mono text-sm border-t border-gray-200 shadow-2xl relative z-50 transition-all duration-300 ease-in-out">
+    <div 
+      className="w-full bg-white text-gray-800 flex flex-col font-mono text-sm border-t border-gray-200 shadow-2xl relative z-50 transition-all duration-300 ease-in-out" 
+      style={{ height: `${height}px` }}
+    >
       {/* Terminal Header */}
       <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-200">
         <div className="flex items-center gap-2">
