@@ -27,6 +27,8 @@ import SaveModal from './save-modal';
 import CanvasTopBar from './canvas-topbar';
 import SimulationTopBar from './simulation-topbar';
 import TerminalPanel from './terminal-panel';
+import { parseAQLCommand } from '@/lib/aql/parser';
+import { executeConfigCommand } from '@/lib/aql/handlers';
 
 export default function Simulator() {
   // Local State
@@ -303,6 +305,43 @@ export default function Simulator() {
     });
   }, [edges, nodes]);
 
+  // AQL Configuration Command Handlers
+  const handleSetConfig = useCallback((command: string) => {
+    const parsed = parseAQLCommand(command);
+    if (parsed.type === 'unknown') {
+      return {
+        success: false,
+        message: parsed.error || 'Invalid command',
+      };
+    }
+    
+    return executeConfigCommand(parsed, nodes, updateNode);
+  }, [nodes, updateNode]);
+
+  const handleMultiConfig = useCallback((command: string) => {
+    const parsed = parseAQLCommand(command);
+    if (parsed.type === 'unknown') {
+      return {
+        success: false,
+        message: parsed.error || 'Invalid command',
+      };
+    }
+    
+    return executeConfigCommand(parsed, nodes, updateNode);
+  }, [nodes, updateNode]);
+
+  const handleResetConfig = useCallback((command: string) => {
+    const parsed = parseAQLCommand(command);
+    if (parsed.type === 'unknown') {
+      return {
+        success: false,
+        message: parsed.error || 'Invalid command',
+      };
+    }
+    
+    return executeConfigCommand(parsed, nodes, updateNode);
+  }, [nodes, updateNode]);
+
   // Custom Hooks - Selection & Events
   const selection = useSelection(nodes, reactFlowRef);
   const { isSelecting, selectionBox, handleSelectionStart, handleSelectionMove, handleSelectionEnd } = selection;
@@ -379,6 +418,7 @@ export default function Simulator() {
   // Custom Hooks - Resizable Panels
   const leftPanel = useResizable(256, 180, 480, false);
   const rightPanel = useResizable(288, 220, 560, true);
+  const terminalPanel = useResizable(288, 200, 600, true, 'vertical');
 
   // Event Handlers
   const loadPreset = useCallback(
@@ -519,16 +559,34 @@ export default function Simulator() {
           
           {/* TERMINAL PANEL */}
           {isTerminalOpen && (
-            <TerminalPanel
-              onClose={() => setIsTerminalOpen(false)}
-              onAddComponent={handleAddComponent}
-              onRemoveNode={handleRemoveNode}
-              onConnectNodes={handleConnectNodes}
-              onDisconnectNodes={handleDisconnectNodes}
-              onRenameNode={handleRenameNode}
-              onShowNodes={handleShowNodes}
-              onShowConnections={handleShowConnections}
-            />
+            <>
+              {/* Terminal Resize Handle */}
+              <div
+                onMouseDown={terminalPanel.onMouseDown}
+                className="h-1.5 shrink-0 cursor-row-resize bg-gray-200 hover:bg-blue-400 active:bg-blue-500 transition-colors relative z-10 group"
+                style={{ touchAction: 'none' }}
+              >
+                <div className="absolute inset-x-0 -top-2 -bottom-2" />
+                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-row gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="h-0.5 w-3 bg-white rounded-full" />
+                  <div className="h-0.5 w-3 bg-white rounded-full" />
+                </div>
+              </div>
+              <TerminalPanel
+                onClose={() => setIsTerminalOpen(false)}
+                onAddComponent={handleAddComponent}
+                onRemoveNode={handleRemoveNode}
+                onConnectNodes={handleConnectNodes}
+                onDisconnectNodes={handleDisconnectNodes}
+                onRenameNode={handleRenameNode}
+                onShowNodes={handleShowNodes}
+                onShowConnections={handleShowConnections}
+                onSetConfig={handleSetConfig}
+                onMultiConfig={handleMultiConfig}
+                onResetConfig={handleResetConfig}
+                height={terminalPanel.size}
+              />
+            </>
           )}
         </div>
 
