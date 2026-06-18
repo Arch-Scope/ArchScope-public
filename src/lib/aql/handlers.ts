@@ -1,6 +1,6 @@
 import { Node } from '@xyflow/react';
 import { SimulationNodeData, ComponentConfig } from '@/types';
-import { getServiceById, COMPONENT_DEFAULTS } from '@/lib/services';
+import { getServiceById, getDefaultConfigForComponent } from '@/lib/services';
 import { ParsedCommand, mapPropertyToConfigField, convertValueForField } from './parser';
 
 export interface CommandResult {
@@ -35,8 +35,13 @@ export function executeSetCommand(
 
   const convertedValue = convertValueForField(configField, parsed.value);
   
+  if (convertedValue === null) {
+    return { success: false, message: `Invalid value for ${parsed.property}: ${parsed.value}` };
+  }
+  
   updateNode(node.id, {
     config: {
+      ...node.data.config,
       [configField]: convertedValue
     } as any
   });
@@ -78,6 +83,10 @@ export function executeMultiConfigCommand(
     }
 
     const convertedValue = convertValueForField(configField, value);
+    if (convertedValue === null) {
+      unknownProperties.push(property);
+      continue;
+    }
     (configUpdates as any)[configField] = convertedValue;
   }
 
@@ -89,7 +98,10 @@ export function executeMultiConfigCommand(
   }
 
   updateNode(node.id, {
-    config: configUpdates as any
+    config: {
+      ...node.data.config,
+      ...configUpdates
+    } as any
   });
 
   const message = `Updated ${Object.keys(configUpdates).length} properties on node "${parsed.label}"`;
@@ -123,31 +135,11 @@ export function executeResetConfigCommand(
   }
 
   const componentType = node.data.componentType;
-  const defaultServiceId = COMPONENT_DEFAULTS[componentType];
-  const service = getServiceById(defaultServiceId);
-
-  if (!service) {
-    return { success: false, message: `Service not found for component type: ${componentType}` };
-  }
+  const defaultConfig = getDefaultConfigForComponent(componentType);
 
   // Reset to service defaults
   updateNode(node.id, {
-    config: {
-      serviceId: defaultServiceId,
-      customLatencyMs: undefined,
-      customMaxRps: undefined,
-      customCostPerHour: undefined,
-      cacheTtlSeconds: undefined,
-      cacheHitRate: componentType === 'cache' ? 0.8 : undefined,
-      queueMaxMessages: undefined,
-      queueProcessingTimeMs: componentType === 'message_queue' ? 100 : undefined,
-      rateLimitAlgorithm: undefined,
-      rateLimitBucketSize: undefined,
-      rateLimitRefillRate: undefined,
-      rateLimitWindowSeconds: undefined,
-      rateLimitMaxRequests: undefined,
-      redisCounterTtlSeconds: undefined,
-    }
+    config: defaultConfig
   });
 
   return { 

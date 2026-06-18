@@ -20,12 +20,20 @@ export function parseSetCommand(command: string): ParsedCommand {
     return { type: 'unknown', error: 'Invalid set command. Usage: set <label> <property> = <value>' };
   }
   
+  if (parts.length > 5) {
+    return { type: 'unknown', error: 'Invalid set command. Too many arguments. Usage: set <label> <property> = <value>' };
+  }
+  
   const label = parts[1];
   const property = parts[2];
   const equalsIndex = parts.indexOf('=');
   
   if (equalsIndex === -1) {
     return { type: 'unknown', error: 'Invalid set command. Missing "=" operator' };
+  }
+  
+  if (equalsIndex !== 3) {
+    return { type: 'unknown', error: 'Invalid set command. Expected format: set <label> <property> = <value>' };
   }
   
   const valueStr = parts.slice(equalsIndex + 1).join(' ');
@@ -133,7 +141,6 @@ function parseValue(valueStr: string): string | number | boolean {
  * Main parser function that routes to the appropriate parser
  */
 export function parseAQLCommand(command: string): ParsedCommand {
-  const normalized = command.trim().toLowerCase();
   const parts = command.trim().split(/\s+/);
   const cmd = parts[0].toLowerCase();
   
@@ -157,6 +164,7 @@ export function parseAQLCommand(command: string): ParsedCommand {
  */
 export function mapPropertyToConfigField(property: string): keyof ComponentConfig | null {
   const mapping: Record<string, keyof ComponentConfig> = {
+    // Primary mappings
     'latency': 'customLatencyMs',
     'maxrps': 'customMaxRps',
     'cost': 'customCostPerHour',
@@ -170,6 +178,32 @@ export function mapPropertyToConfigField(property: string): keyof ComponentConfi
     'windowseconds': 'rateLimitWindowSeconds',
     'maxrequests': 'rateLimitMaxRequests',
     'rediscounterttl': 'redisCounterTtlSeconds',
+    
+    // Common aliases
+    'max_rps': 'customMaxRps',
+    'max-rps': 'customMaxRps',
+    'bucket_size': 'rateLimitBucketSize',
+    'bucket-size': 'rateLimitBucketSize',
+    'processing_time': 'queueProcessingTimeMs',
+    'processing-time': 'queueProcessingTimeMs',
+    'window_seconds': 'rateLimitWindowSeconds',
+    'window-seconds': 'rateLimitWindowSeconds',
+    'max_requests': 'rateLimitMaxRequests',
+    'max-requests': 'rateLimitMaxRequests',
+    'redis_counter_ttl': 'redisCounterTtlSeconds',
+    'redis-counter-ttl': 'redisCounterTtlSeconds',
+    'cache_ttl': 'cacheTtlSeconds',
+    'cache-ttl': 'cacheTtlSeconds',
+    'cache_hit_rate': 'cacheHitRate',
+    'cache-hit-rate': 'cacheHitRate',
+    'custom_latency': 'customLatencyMs',
+    'custom-latency': 'customLatencyMs',
+    'custom_cost': 'customCostPerHour',
+    'custom-cost': 'customCostPerHour',
+    'rate_limit_algorithm': 'rateLimitAlgorithm',
+    'rate-limit-algorithm': 'rateLimitAlgorithm',
+    'rate_limit_refill_rate': 'rateLimitRefillRate',
+    'rate-limit-refill-rate': 'rateLimitRefillRate',
   };
   
   // Try exact match first
@@ -196,30 +230,67 @@ export function convertValueForField(
   value: string | number | boolean
 ): any {
   switch (field) {
-    case 'customLatencyMs':
+    case 'customLatencyMs': {
+      const num = Number(value);
+      if (isNaN(num)) {
+        return null; // Invalid numeric value
+      }
+      if (num <= 0) {
+        return null; // Latency must be positive
+      }
+      return num;
+    }
+    
     case 'customMaxRps':
     case 'cacheTtlSeconds':
     case 'queueMaxMessages':
-    case 'queueProcessingTimeMs':
     case 'rateLimitBucketSize':
     case 'rateLimitRefillRate':
     case 'rateLimitWindowSeconds':
     case 'rateLimitMaxRequests':
-    case 'redisCounterTtlSeconds':
-      return Number(value);
-    
-    case 'cacheHitRate':
-      // Hit rate is 0-1, but users might input 0-100
+    case 'redisCounterTtlSeconds': {
       const num = Number(value);
-      return num > 1 ? num / 100 : num;
+      if (isNaN(num)) {
+        return null; // Invalid numeric value
+      }
+      if (num < 0) {
+        return null; // Must be non-negative
+      }
+      return num;
+    }
     
-    case 'rateLimitAlgorithm':
+    case 'queueProcessingTimeMs': {
+      const num = Number(value);
+      if (isNaN(num)) {
+        return null; // Invalid numeric value
+      }
+      if (num <= 0) {
+        return null; // Processing time must be positive
+      }
+      return num;
+    }
+    
+    case 'cacheHitRate': {
+      const num = Number(value);
+      if (isNaN(num)) {
+        return null;
+      }
+      // Hit rate is 0-1, but users might input 0-100
+      const normalizedRate = num > 1 ? num / 100 : num;
+      if (normalizedRate < 0 || normalizedRate > 1) {
+        return null; // Hit rate must be between 0 and 1
+      }
+      return normalizedRate;
+    }
+    
+    case 'rateLimitAlgorithm': {
       const validAlgorithms: RateLimitAlgorithm[] = ['token_bucket', 'fixed_window', 'sliding_window', 'leaky_bucket'];
       const algStr = String(value).toLowerCase();
       if (validAlgorithms.includes(algStr as RateLimitAlgorithm)) {
         return algStr as RateLimitAlgorithm;
       }
-      return 'token_bucket'; // default
+      return null; // Invalid algorithm
+    }
     
     default:
       return value;
