@@ -12,14 +12,16 @@ AQL is a declarative-imperative domain-specific language for defining, configuri
 - **Configuration Commands** (`set`, `config`, `reset config`) with full validation and error handling
 - **Basic Architecture Commands** (`add`, `remove`, `connect`, `disconnect`, `rename`) 
 - **Query Commands** (`show_nodes`, `show_connections`)
-- **Help System** (`help`, `--help` flags) for all implemented commands
+- **Simulation Commands** (`sim_set`, `sim_config`, `sim_run`, `sim_stop`, `sim_reset`) with validation
+- **Simulation Query Commands** (`show_sim`, `show_metrics`, `show_bottlenecks`) with result display
+- **Help System** (`help`, `--help` flags) for all implemented commands including simulation
 - **Terminal Management** (`clear` terminal command)
 - **Property Aliases** - supports multiple naming conventions (e.g., `max_rps`, `max-rps` → `maxrps`)
 - **Strict Validation** - rejects invalid values, enforces ranges, validates algorithms
+- **Simulation State Management** - maintains configuration, results, and history
 
 ### ❌ **Not Yet Implemented**
-- **Simulation Commands** (`sim_set`, `sim_config`, `sim_run`, etc.)
-- **Advanced Query Commands** (`show_metrics`, `show_bottlenecks`, `describe`, `show_cost`, `show_latency`, `show_timeseries`, `show_sim`, `show_services`, `show_presets`)
+- **Advanced Query Commands** (`describe`, `show_cost`, `show_latency`, `show_timeseries`, `show_services`, `show_presets`)
 - **Preset Commands** (`load_preset`, `save_preset`, `delete_preset`, `clear_all`)
 - **Output Commands** (`report`, `export`, `import`, `assert`, `compare`)
 - **Advanced Architecture Features** (`using <service_id>`, `label "<label>"` in add commands)
@@ -33,6 +35,7 @@ AQL is a declarative-imperative domain-specific language for defining, configuri
 3. [Command Reference](#command-reference)
    - [Architecture Commands](#architecture-commands)
    - [Configuration Commands](#configuration-commands)
+   - [Simulation Commands](#simulation-commands)
    - [Query Commands](#query-commands)
 4. [Component Types](#component-types)
 5. [Property Reference](#property-reference)
@@ -307,9 +310,122 @@ reset config api1
 
 ---
 
+### Simulation Commands
+
+These commands configure and run performance simulations on the architecture.
+
+---
+
+#### `sim_set`
+
+Sets a single simulation parameter with validation.
+
+```
+sim_set <property> = <value>
+```
+
+**✅ Properties:**
+- `duration` - Simulation duration in seconds (must be > 0)
+- `load_per_user` - Requests per second per user (must be > 0)
+- `clients` - Number of concurrent clients (must be > 0)
+- `rampup` - Ramp-up time in seconds (must be > 0)
+- `algorithm` - Load pattern: `random`, `uniform`, or `burst`
+
+**Examples:**
+```aql
+sim_set duration = 300
+sim_set load_per_user = 10
+sim_set clients = 100
+sim_set rampup = 30
+sim_set algorithm = random
+```
+
+---
+
+#### `sim_config`
+
+Sets multiple simulation parameters in a single block with validation.
+
+```
+sim_config {
+  <property>: <value>,
+  <property>: <value>
+  ...
+}
+```
+
+**✅ Features:**
+- **Batch Updates**: Sets multiple properties in one command
+- **Validation**: Each property is validated before applying
+- **Partial Success**: Applies valid properties even if some are invalid
+
+**Example:**
+```aql
+sim_config {
+  duration: 600,
+  load_per_user: 10,
+  clients: 500,
+  rampup: 60,
+  algorithm: uniform
+}
+```
+
+---
+
+#### `sim_run`
+
+Executes a simulation with current configuration or optional overrides.
+
+```
+sim_run [property=value ...]
+```
+
+**✅ Features:**
+- **Architecture Validation**: Requires nodes to be defined
+- **Override Support**: Temporarily override config for this run
+- **Results Storage**: Saves results in history for analysis
+
+**Examples:**
+```aql
+sim_run                    -- Run with current settings
+sim_run duration=300       -- Override duration for this run
+sim_run load_per_user=5 algorithm=burst  -- Multiple overrides
+```
+
+---
+
+#### `sim_stop`
+
+Stops a currently running simulation.
+
+```
+sim_stop
+```
+
+---
+
+#### `sim_reset`
+
+Resets simulation configuration to defaults.
+
+```
+sim_reset
+```
+
+**Default Configuration:**
+- Duration: 300 seconds
+- Load per user: 10 RPS
+- Clients: 100
+- Payload size: 0.001 MB
+- Load profile: constant
+- Spike frequency: 3
+- Spike intensity: 2
+
+---
+
 ### Query Commands
 
-Inspect the current state of the architecture.
+Inspect the current state of the architecture and simulation results.
 
 ---
 
@@ -412,6 +528,101 @@ Query:
 Other:
   clear - Clear terminal
   help - Show this help
+```
+
+---
+
+#### `show_sim` 
+
+Displays current simulation configuration or status.
+
+```
+show_sim [status|config]
+```
+
+**✅ Features:**
+- **Configuration Display**: Shows current simulation parameters
+- **Status Information**: Shows running state and last run time
+- **State Management**: Displays current simulation state
+
+**Examples:**
+```aql
+show_sim                   -- Show current configuration
+show_sim status            -- Show running status
+show_sim config            -- Show configuration (default)
+```
+
+**Sample Output:**
+```
+Simulation Configuration:
+  Duration: 300s
+  Load: 1000 RPS
+  Clients: 100
+  Ramp-up: 30s
+  Algorithm: random
+```
+
+---
+
+#### `show_metrics` 
+
+Displays simulation results and performance metrics.
+
+```
+show_metrics [latency|throughput|errors]
+```
+
+**✅ Features:**
+- **Comprehensive Metrics**: Latency, throughput, error rates
+- **Filtered Views**: Show specific metric categories
+- **Historical Data**: Access results from previous runs
+
+**Examples:**
+```aql
+show_metrics               -- Show all metrics
+show_metrics latency       -- Show latency metrics only
+show_metrics throughput    -- Show throughput metrics only
+show_metrics errors        -- Show error metrics only
+```
+
+**Sample Output:**
+```
+Simulation Results Summary:
+  Duration: 300s
+  Total requests: 300000
+  Successful: 285000
+  Failed: 15000
+  Error rate: 5.00%
+  Average latency: 45.23ms
+  95th percentile: 125.50ms
+  99th percentile: 289.75ms
+  Throughput: 950.00 RPS
+```
+
+---
+
+#### `show_bottlenecks` 
+
+Identifies and displays performance bottlenecks from simulation results.
+
+```
+show_bottlenecks
+```
+
+**✅ Features:**
+- **Bottleneck Detection**: Identifies high-utilization and high-latency nodes
+- **Severity Classification**: Low, medium, high, critical severity levels
+- **Detailed Analysis**: Shows specific metrics and thresholds
+
+**Sample Output:**
+```
+Performance Bottlenecks:
+  1. api1 (HIGH)
+     High utilization detected
+     utilization: 0.92 (threshold: 0.8)
+  2. redis1 (MEDIUM)
+     High latency detected
+     latency: 85.3ms (threshold: 50.0ms)
 ```
 
 ---
@@ -559,15 +770,63 @@ show_connections
 
 ---
 
+### Example 3 — Performance Simulation and Analysis
+
+```aql
+-- Set up a simple API architecture
+add client as users
+add load_balancer as lb
+add api_server as api1
+add api_server as api2
+add cache as redis
+add database as db
+
+-- Connect the components
+connect users to lb
+connect lb to api1 animated
+connect lb to api2 animated
+connect api1 to redis
+connect api2 to redis
+connect redis to db
+
+-- Configure cache performance
+config redis {
+  hitrate: 0.85,
+  ttl: 300
+}
+
+-- Configure database capacity
+set db maxrps = 10000
+
+-- Configure simulation parameters
+sim_config {
+  duration: 600,
+  load_per_user: 10,
+  clients: 200,
+  rampup: 60,
+  algorithm: uniform
+}
+
+-- Run the simulation
+sim_run
+
+-- Analyze results
+show_metrics
+show_bottlenecks
+show_sim status
+```
+
+---
+
 ## Current Limitations
 
-1. **No Simulation Control:** Cannot run simulations or view results via AQL
-2. **Limited Service Selection:** Cannot specify `USING <service_id>` or custom `LABEL` in ADD commands
-3. **No Preset Management:** Cannot save/load architecture presets
-4. **No Advanced Queries:** Cannot view metrics, bottlenecks, or detailed node information
-5. **No Export/Import:** Cannot save architectures to files or import scripts
-6. **No Performance Validation:** Cannot assert performance requirements or compare designs
-7. **No Filtering:** Cannot filter queries (e.g., `show_nodes WHERE type = api_server`)
+1. **Limited Service Selection:** Cannot specify `USING <service_id>` or custom `LABEL` in ADD commands
+2. **No Preset Management:** Cannot save/load architecture presets
+3. **No Advanced Queries:** Cannot view detailed node information (`describe`), cost analysis (`show_cost`), or time series data (`show_timeseries`)
+4. **No Export/Import:** Cannot save architectures to files or import scripts
+5. **No Performance Validation:** Cannot assert performance requirements or compare designs
+6. **No Filtering:** Cannot filter queries (e.g., `show_nodes WHERE type = api_server`)
+7. **No Service Management:** Cannot show available services (`show_services`) or presets (`show_presets`)
 
 ---
 
@@ -575,10 +834,10 @@ show_connections
 
 To reach the full AQL specification, the following features need to be implemented:
 
-1. **Simulation Commands** - `sim_set`, `sim_config`, `sim_run`, etc.
-2. **Advanced Queries** - `show_metrics`, `show_bottlenecks`, `describe`
-3. **Preset Management** - `load_preset`, `save_preset`, `delete_preset`
-4. **Output Commands** - `report`, `export`, `import`, `assert`, `compare`
-5. **Enhanced Architecture** - `using <service_id>`, `label "<label>"`, `clear_all`
-6. **Advanced Filtering** - `show_nodes WHERE type = api_server`
-7. **Time Series Data** - `show_timeseries`
+1. **Advanced Queries** - `describe`, `show_cost`, `show_latency`, `show_timeseries`, `show_services`, `show_presets`
+2. **Preset Management** - `load_preset`, `save_preset`, `delete_preset`, `clear_all`
+3. **Output Commands** - `report`, `export`, `import`, `assert`, `compare`
+4. **Enhanced Architecture** - `using <service_id>`, `label "<label>"` in ADD commands
+5. **Advanced Filtering** - `show_nodes WHERE type = api_server`
+6. **Performance Validation** - Enhanced bottleneck detection and performance assertions
+7. **Real-time Simulation** - Live simulation updates and interactive monitoring

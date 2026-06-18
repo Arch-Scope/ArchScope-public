@@ -21,6 +21,7 @@ interface TerminalPanelProps {
   onSetConfig?: (command: string) => CommandResult;
   onMultiConfig?: (command: string) => CommandResult;
   onResetConfig?: (command: string) => CommandResult;
+  onAQLCommand?: (command: string) => CommandResult;
   height?: number;
 }
 
@@ -29,7 +30,7 @@ interface LogEntry {
   content: string;
 }
 
-export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, onConnectNodes, onDisconnectNodes, onRenameNode, onShowNodes, onShowConnections, onSetConfig, onMultiConfig, onResetConfig, height = 288 }: TerminalPanelProps) {
+export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, onConnectNodes, onDisconnectNodes, onRenameNode, onShowNodes, onShowConnections, onSetConfig, onMultiConfig, onResetConfig, onAQLCommand, height = 288 }: TerminalPanelProps) {
   const [input, setInput] = useState('');
   const [logs, setLogs] = useState<LogEntry[]>([
     { type: 'response', content: 'ArchScope Query Language (AQL) Terminal v1.0.0' },
@@ -122,9 +123,18 @@ export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, o
           { type: 'response', content: '  set <label> <property> = <value>' },
           { type: 'response', content: '  config <label> { <property>: <value>, ... }' },
           { type: 'response', content: '  reset config <label>' },
+          { type: 'response', content: 'Simulation:' },
+          { type: 'response', content: '  sim_set <property> = <value>' },
+          { type: 'response', content: '  sim_config { <property>: <value>, ... }' },
+          { type: 'response', content: '  sim_run [property=value ...]' },
+          { type: 'response', content: '  sim_stop' },
+          { type: 'response', content: '  sim_reset' },
           { type: 'response', content: 'Query:' },
           { type: 'response', content: '  show_nodes - List all nodes' },
           { type: 'response', content: '  show_connections - List all connections' },
+          { type: 'response', content: '  show_sim [status|config]' },
+          { type: 'response', content: '  show_metrics [latency|throughput|errors]' },
+          { type: 'response', content: '  show_bottlenecks' },
           { type: 'response', content: 'Other:' },
           { type: 'response', content: '  clear - Clear terminal' },
           { type: 'response', content: '  help - Show this help' },
@@ -280,6 +290,115 @@ export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, o
             { type: 'response', content: 'Resets a node\'s config to its service defaults.' },
             { type: 'response', content: 'Usage: reset config <label>' },
             { type: 'response', content: 'Example: reset config api1' },
+          ]);
+        } else if (command === 'sim_set') {
+          setLogs((prev) => [
+            ...prev,
+            { type: 'response', content: 'Sets a single simulation parameter.' },
+            { type: 'response', content: 'Usage: sim_set <property> = <value>' },
+            { type: 'response', content: '' },
+            { type: 'response', content: 'Available properties:' },
+            { type: 'response', content: '  duration - Simulation duration in seconds (must be > 0)' },
+            { type: 'response', content: '  load_per_user - Requests per second per user (must be > 0)' },
+            { type: 'response', content: '  clients - Number of concurrent clients (must be > 0)' },
+            { type: 'response', content: '  payload_size - Payload size in MB (must be > 0)' },
+            { type: 'response', content: '  load_profile - Load pattern: constant, sine, or repeating_spike' },
+            { type: 'response', content: '  spike_frequency - Spikes per simulation (1-10, only for repeating_spike)' },
+            { type: 'response', content: '  spike_intensity - Peak multiplier (1.5-5x, only for repeating_spike)' },
+            { type: 'response', content: '' },
+            { type: 'response', content: 'Examples:' },
+            { type: 'response', content: '  sim_set duration = 300' },
+            { type: 'response', content: '  sim_set load_per_user = 10' },
+            { type: 'response', content: '  sim_set payload_size = 0.5' },
+            { type: 'response', content: '  sim_set load_profile = repeating_spike' },
+            { type: 'response', content: '  sim_set spike_frequency = 5' },
+          ]);
+        } else if (command === 'sim_config') {
+          setLogs((prev) => [
+            ...prev,
+            { type: 'response', content: 'Sets multiple simulation parameters in a single block.' },
+            { type: 'response', content: 'Usage: sim_config { <property>: <value>, ... }' },
+            { type: 'response', content: '' },
+            { type: 'response', content: 'Examples:' },
+            { type: 'response', content: '  sim_config {' },
+            { type: 'response', content: '    duration: 600,' },
+            { type: 'response', content: '    load_per_user: 10,' },
+            { type: 'response', content: '    clients: 500,' },
+            { type: 'response', content: '    payload_size: 0.5,' },
+            { type: 'response', content: '    load_profile: sine' },
+            { type: 'response', content: '  }' },
+            { type: 'response', content: '' },
+            { type: 'response', content: '  sim_config {' },
+            { type: 'response', content: '    duration: 300,' },
+            { type: 'response', content: '    load_per_user: 5,' },
+            { type: 'response', content: '    load_profile: repeating_spike,' },
+            { type: 'response', content: '    spike_frequency: 4,' },
+            { type: 'response', content: '    spike_intensity: 3' },
+            { type: 'response', content: '  }' },
+          ]);
+        } else if (command === 'sim_run') {
+          setLogs((prev) => [
+            ...prev,
+            { type: 'response', content: 'Executes a simulation with current configuration or optional overrides.' },
+            { type: 'response', content: 'Usage: sim_run [property=value ...]' },
+            { type: 'response', content: '' },
+            { type: 'response', content: 'Examples:' },
+            { type: 'response', content: '  sim_run                    -- Run with current settings' },
+            { type: 'response', content: '  sim_run duration=300       -- Override duration for this run' },
+            { type: 'response', content: '  sim_run load=2000 algorithm=burst  -- Multiple overrides' },
+          ]);
+        } else if (command === 'sim_stop') {
+          setLogs((prev) => [
+            ...prev,
+            { type: 'response', content: 'Stops a currently running simulation.' },
+            { type: 'response', content: 'Usage: sim_stop' },
+          ]);
+        } else if (command === 'sim_reset') {
+          setLogs((prev) => [
+            ...prev,
+            { type: 'response', content: 'Resets simulation configuration to defaults.' },
+            { type: 'response', content: 'Usage: sim_reset' },
+            { type: 'response', content: '' },
+            { type: 'response', content: 'Default configuration:' },
+            { type: 'response', content: '  Duration: 300 seconds' },
+            { type: 'response', content: '  Load: 1000 RPS' },
+            { type: 'response', content: '  Clients: 100' },
+            { type: 'response', content: '  Ramp-up: 30 seconds' },
+            { type: 'response', content: '  Algorithm: random' },
+          ]);
+        } else if (command === 'show_sim') {
+          setLogs((prev) => [
+            ...prev,
+            { type: 'response', content: 'Displays current simulation configuration or status.' },
+            { type: 'response', content: 'Usage: show_sim [status|config]' },
+            { type: 'response', content: '' },
+            { type: 'response', content: 'Examples:' },
+            { type: 'response', content: '  show_sim                   -- Show current configuration' },
+            { type: 'response', content: '  show_sim status            -- Show running status' },
+            { type: 'response', content: '  show_sim config            -- Show configuration (default)' },
+          ]);
+        } else if (command === 'show_metrics') {
+          setLogs((prev) => [
+            ...prev,
+            { type: 'response', content: 'Displays simulation results and performance metrics.' },
+            { type: 'response', content: 'Usage: show_metrics [latency|throughput|errors]' },
+            { type: 'response', content: '' },
+            { type: 'response', content: 'Examples:' },
+            { type: 'response', content: '  show_metrics               -- Show all metrics' },
+            { type: 'response', content: '  show_metrics latency       -- Show latency metrics only' },
+            { type: 'response', content: '  show_metrics throughput    -- Show throughput metrics only' },
+            { type: 'response', content: '  show_metrics errors        -- Show error metrics only' },
+          ]);
+        } else if (command === 'show_bottlenecks') {
+          setLogs((prev) => [
+            ...prev,
+            { type: 'response', content: 'Identifies and displays performance bottlenecks from simulation results.' },
+            { type: 'response', content: 'Usage: show_bottlenecks' },
+            { type: 'response', content: '' },
+            { type: 'response', content: 'Shows:' },
+            { type: 'response', content: '  High utilization nodes' },
+            { type: 'response', content: '  High latency nodes' },
+            { type: 'response', content: '  Severity levels: Low, Medium, High, Critical' },
           ]);
         } else {
           setLogs((prev) => [
@@ -463,6 +582,21 @@ export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, o
           ]);
         } else {
           setLogs((prev) => [...prev, { type: 'error', content: 'Error: Configuration commands not available' }]);
+        }
+        setShouldFocusInput(true);
+        return;
+      }
+
+      // Handle simulation commands locally
+      if (command.startsWith('sim_') || command === 'show_sim' || command === 'show_metrics' || command === 'show_bottlenecks') {
+        if (onAQLCommand) {
+          const result = onAQLCommand(rawCommand);
+          setLogs((prev) => [
+            ...prev,
+            { type: result.success ? 'response' : 'error', content: result.message },
+          ]);
+        } else {
+          setLogs((prev) => [...prev, { type: 'error', content: 'Error: Simulation commands not available' }]);
         }
         setShouldFocusInput(true);
         return;

@@ -1,7 +1,17 @@
 import { Node } from '@xyflow/react';
-import { SimulationNodeData, ComponentConfig } from '@/types';
+import { SimulationNodeData, ComponentConfig, SimulationParams } from '@/types';
 import { getServiceById, getDefaultConfigForComponent } from '@/lib/services';
 import { ParsedCommand, mapPropertyToConfigField, convertValueForField } from './parser';
+import {
+  executeSimSetCommand,
+  executeSimConfigCommand,
+  executeSimResetCommand,
+  executeSimRunCommand,
+  executeSimStopCommand,
+  executeShowSimCommand,
+  executeShowMetricsCommand,
+  executeShowBottlenecksCommand
+} from './simulation-handlers';
 
 export interface CommandResult {
   success: boolean;
@@ -154,7 +164,11 @@ export function executeResetConfigCommand(
 export function executeConfigCommand(
   parsed: ParsedCommand,
   nodes: Node<SimulationNodeData>[],
-  updateNode: (nodeId: string, data: Partial<SimulationNodeData>) => void
+  updateNode: (nodeId: string, data: Partial<SimulationNodeData>) => void,
+  onUpdateUIParams?: (params: Partial<SimulationParams>) => void,
+  onRunSimulation?: () => void,
+  onStopSimulation?: () => void,
+  onResetSimulation?: () => void
 ): CommandResult {
   switch (parsed.type) {
     case 'set':
@@ -163,6 +177,22 @@ export function executeConfigCommand(
       return executeMultiConfigCommand(parsed, nodes, updateNode);
     case 'reset_config':
       return executeResetConfigCommand(parsed, nodes, updateNode);
+    case 'sim_set':
+      return executeSimSetCommand(parsed, onUpdateUIParams);
+    case 'sim_config':
+      return executeSimConfigCommand(parsed, onUpdateUIParams);
+    case 'sim_reset':
+      return executeSimResetCommand(onUpdateUIParams, onResetSimulation);
+    case 'sim_run':
+      return executeSimRunCommand(parsed, nodes, onRunSimulation);
+    case 'sim_stop':
+      return executeSimStopCommand(onStopSimulation);
+    case 'show_sim':
+      return executeShowSimCommand(parsed);
+    case 'show_metrics':
+      return executeShowMetricsCommand(parsed);
+    case 'show_bottlenecks':
+      return executeShowBottlenecksCommand();
     default:
       return { success: false, message: parsed.error || 'Unknown command' };
   }
