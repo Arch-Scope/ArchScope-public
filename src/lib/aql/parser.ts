@@ -1,11 +1,16 @@
 import { ComponentConfig, RateLimitAlgorithm } from '@/types';
 
 export interface ParsedCommand {
-  type: 'set' | 'config' | 'reset_config' | 'unknown';
+  type: 'set' | 'config' | 'reset_config' | 'sim_set' | 'sim_config' | 'sim_run' | 'sim_stop' | 'sim_reset' | 'show_sim' | 'show_metrics' | 'show_bottlenecks' | 'unknown';
   label?: string;
   property?: string;
   value?: string | number | boolean;
   properties?: Record<string, string | number | boolean>;
+  simProperty?: string;
+  simValue?: string | number | boolean;
+  simProperties?: Record<string, string | number | boolean>;
+  simOverrides?: Record<string, string | number | boolean>;
+  queryType?: string;
   error?: string;
 }
 
@@ -138,6 +143,188 @@ function parseValue(valueStr: string): string | number | boolean {
 }
 
 /**
+ * Parse a simulation set command
+ * Syntax: sim_set <property> = <value>
+ */
+export function parseSimSetCommand(command: string): ParsedCommand {
+  const parts = command.trim().split(/\s+/);
+  
+  if (parts.length < 4) {
+    return { type: 'unknown', error: 'Invalid sim_set command. Usage: sim_set <property> = <value>' };
+  }
+  
+  if (parts.length > 5) {
+    return { type: 'unknown', error: 'Invalid sim_set command. Too many arguments. Usage: sim_set <property> = <value>' };
+  }
+  
+  const property = parts[1];
+  const equalsIndex = parts.indexOf('=');
+  
+  if (equalsIndex === -1) {
+    return { type: 'unknown', error: 'Invalid sim_set command. Missing "=" operator' };
+  }
+  
+  if (equalsIndex !== 2) {
+    return { type: 'unknown', error: 'Invalid sim_set command. Expected format: sim_set <property> = <value>' };
+  }
+  
+  const valueStr = parts.slice(equalsIndex + 1).join(' ');
+  const value = parseValue(valueStr);
+  
+  return {
+    type: 'sim_set',
+    simProperty: property,
+    simValue: value
+  };
+}
+
+/**
+ * Parse a simulation config command
+ * Syntax: sim_config { <property>: <value>, ... }
+ */
+export function parseSimConfigCommand(command: string): ParsedCommand {
+  const parts = command.trim().split(/\s+/);
+  
+  if (parts.length < 1) {
+    return { type: 'unknown', error: 'Invalid sim_config command. Usage: sim_config { <property>: <value>, ... }' };
+  }
+  
+  const braceStart = command.indexOf('{');
+  const braceEnd = command.indexOf('}');
+  
+  if (braceStart === -1 || braceEnd === -1) {
+    return { type: 'unknown', error: 'Invalid sim_config command. Missing { } block' };
+  }
+  
+  const blockContent = command.slice(braceStart + 1, braceEnd).trim();
+  const properties: Record<string, string | number | boolean> = {};
+  
+  // Parse key-value pairs separated by commas
+  const pairs = blockContent.split(',').map(p => p.trim()).filter(p => p);
+  
+  for (const pair of pairs) {
+    const colonIndex = pair.indexOf(':');
+    if (colonIndex === -1) {
+      return { type: 'unknown', error: `Invalid property pair: ${pair}` };
+    }
+    
+    const key = pair.slice(0, colonIndex).trim();
+    const valueStr = pair.slice(colonIndex + 1).trim();
+    const value = parseValue(valueStr);
+    
+    properties[key] = value;
+  }
+  
+  return {
+    type: 'sim_config',
+    simProperties: properties
+  };
+}
+
+/**
+ * Parse a simulation run command
+ * Syntax: sim_run [property=value ...]
+ */
+export function parseSimRunCommand(command: string): ParsedCommand {
+  const parts = command.trim().split(/\s+/);
+  const overrides: Record<string, string | number | boolean> = {};
+  
+  // Parse optional overrides like duration=300
+  for (let i = 1; i < parts.length; i++) {
+    const part = parts[i];
+    const equalIndex = part.indexOf('=');
+    
+    if (equalIndex !== -1) {
+      const key = part.slice(0, equalIndex).trim();
+      const valueStr = part.slice(equalIndex + 1).trim();
+      const value = parseValue(valueStr);
+      overrides[key] = value;
+    }
+  }
+  
+  return {
+    type: 'sim_run',
+    simOverrides: Object.keys(overrides).length > 0 ? overrides : undefined
+  };
+}
+
+/**
+ * Parse a simulation stop command
+ * Syntax: sim_stop
+ */
+export function parseSimStopCommand(command: string): ParsedCommand {
+  const parts = command.trim().split(/\s+/);
+  
+  if (parts.length > 1) {
+    return { type: 'unknown', error: 'Invalid sim_stop command. Usage: sim_stop' };
+  }
+  
+  return { type: 'sim_stop' };
+}
+
+/**
+ * Parse a simulation reset command
+ * Syntax: sim_reset
+ */
+export function parseSimResetCommand(command: string): ParsedCommand {
+  const parts = command.trim().split(/\s+/);
+  
+  if (parts.length > 1) {
+    return { type: 'unknown', error: 'Invalid sim_reset command. Usage: sim_reset' };
+  }
+  
+  return { type: 'sim_reset' };
+}
+
+/**
+ * Parse a show simulation command
+ * Syntax: show_sim [status|config]
+ */
+export function parseShowSimCommand(command: string): ParsedCommand {
+  const parts = command.trim().split(/\s+/);
+  
+  if (parts.length > 2) {
+    return { type: 'unknown', error: 'Invalid show_sim command. Usage: show_sim [status|config]' };
+  }
+  
+  return {
+    type: 'show_sim',
+    queryType: parts[1] || 'config'
+  };
+}
+
+/**
+ * Parse a show metrics command
+ * Syntax: show_metrics [latency|throughput|errors]
+ */
+export function parseShowMetricsCommand(command: string): ParsedCommand {
+  const parts = command.trim().split(/\s+/);
+  
+  if (parts.length > 2) {
+    return { type: 'unknown', error: 'Invalid show_metrics command. Usage: show_metrics [latency|throughput|errors]' };
+  }
+  
+  return {
+    type: 'show_metrics',
+    queryType: parts[1] || 'all'
+  };
+}
+
+/**
+ * Parse a show bottlenecks command
+ * Syntax: show_bottlenecks
+ */
+export function parseShowBottlenecksCommand(command: string): ParsedCommand {
+  const parts = command.trim().split(/\s+/);
+  
+  if (parts.length > 1) {
+    return { type: 'unknown', error: 'Invalid show_bottlenecks command. Usage: show_bottlenecks' };
+  }
+  
+  return { type: 'show_bottlenecks' };
+}
+
+/**
  * Main parser function that routes to the appropriate parser
  */
 export function parseAQLCommand(command: string): ParsedCommand {
@@ -154,6 +341,38 @@ export function parseAQLCommand(command: string): ParsedCommand {
   
   if (cmd === 'reset' && parts[1]?.toLowerCase() === 'config') {
     return parseResetConfigCommand(command);
+  }
+  
+  if (cmd === 'sim_set') {
+    return parseSimSetCommand(command);
+  }
+  
+  if (cmd === 'sim_config') {
+    return parseSimConfigCommand(command);
+  }
+  
+  if (cmd === 'sim_run') {
+    return parseSimRunCommand(command);
+  }
+  
+  if (cmd === 'sim_stop') {
+    return parseSimStopCommand(command);
+  }
+  
+  if (cmd === 'sim_reset') {
+    return parseSimResetCommand(command);
+  }
+  
+  if (cmd === 'show_sim') {
+    return parseShowSimCommand(command);
+  }
+  
+  if (cmd === 'show_metrics') {
+    return parseShowMetricsCommand(command);
+  }
+  
+  if (cmd === 'show_bottlenecks') {
+    return parseShowBottlenecksCommand(command);
   }
   
   return { type: 'unknown', error: `Unknown command: ${cmd}` };

@@ -7,7 +7,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
-import { SimulationNodeData } from '@/types';
+import { SimulationNodeData, SimulationParams } from '@/types';
 import { PRESETS } from '@/data';
 import { COMPONENT_LABELS, COMPONENT_DEFAULTS } from '@/lib/services';
 
@@ -342,6 +342,24 @@ export default function Simulator() {
     return executeConfigCommand(parsed, nodes, updateNode);
   }, [nodes, updateNode]);
 
+  // General AQL Command Handler (for simulation commands and others)
+  const handleAQLCommand = useCallback((command: string) => {
+    const parsed = parseAQLCommand(command);
+    if (parsed.type === 'unknown') {
+      return {
+        success: false,
+        message: parsed.error || 'Invalid command',
+      };
+    }
+    
+    // Create a wrapper function that handles partial updates
+    const updateUIParams = (partialParams: Partial<SimulationParams>) => {
+      setSimulationParams(prev => ({ ...prev, ...partialParams }));
+    };
+    
+    return executeConfigCommand(parsed, nodes, updateNode, updateUIParams, handleRunSimulation, stopSimulation, handleReset);
+  }, [nodes, updateNode, setSimulationParams, handleRunSimulation, stopSimulation, handleReset]);
+
   // Custom Hooks - Selection & Events
   const selection = useSelection(nodes, reactFlowRef);
   const { isSelecting, selectionBox, handleSelectionStart, handleSelectionMove, handleSelectionEnd } = selection;
@@ -584,6 +602,7 @@ export default function Simulator() {
                 onSetConfig={handleSetConfig}
                 onMultiConfig={handleMultiConfig}
                 onResetConfig={handleResetConfig}
+                onAQLCommand={handleAQLCommand}
                 height={terminalPanel.size}
               />
             </>
