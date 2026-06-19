@@ -168,7 +168,8 @@ export function executeConfigCommand(
   onUpdateUIParams?: (params: Partial<SimulationParams>) => void,
   onRunSimulation?: () => void,
   onStopSimulation?: () => void,
-  onResetSimulation?: () => void
+  onResetSimulation?: () => void,
+  onSimulationComplete?: (results: any) => void
 ): CommandResult {
   switch (parsed.type) {
     case 'set':
@@ -184,7 +185,7 @@ export function executeConfigCommand(
     case 'sim_reset':
       return executeSimResetCommand(onUpdateUIParams, onResetSimulation);
     case 'sim_run':
-      return executeSimRunCommand(parsed, nodes, onRunSimulation);
+      return executeSimRunCommand(parsed, nodes, onRunSimulation, onSimulationComplete);
     case 'sim_stop':
       return executeSimStopCommand(onStopSimulation);
     case 'show_sim':

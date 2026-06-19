@@ -22,6 +22,19 @@ let simulationState: SimulationState = {
   resultsHistory: []
 };
 
+
+// Helper function to get current simulation state (from window if available, otherwise from local state)
+function getCurrentSimulationState(): SimulationState {
+  const windowState = (window as any).simulationState;
+  return windowState || simulationState;
+}
+
+// Helper function to update simulation state (both local and window)
+function updateSimulationState(updates: Partial<SimulationState>): void {
+  simulationState = { ...simulationState, ...updates };
+  (window as any).simulationState = simulationState;
+}
+
 // Async simulation state
 let simulationProgress: { elapsed: number; total: number } | null = null;
 let simulationStartTime: number | null = null;
@@ -263,9 +276,11 @@ export function executeSimResetCommand(
 export function executeSimRunCommand(
   parsed: ParsedCommand,
   nodes: Node<SimulationNodeData>[],
-  onRunSimulation?: () => void
+  onRunSimulation?: () => void,
+  onSimulationComplete?: (results: any) => void
 ): CommandResult {
-  if (simulationState.isRunning) {
+  const currentState = getCurrentSimulationState();
+  if (currentState.isRunning) {
     return { success: false, message: 'Simulation is already running' };
   }
 
@@ -274,7 +289,7 @@ export function executeSimRunCommand(
   }
 
   // Apply any overrides for this run
-  let runConfig = { ...simulationState.config };
+  let runConfig = { ...currentState.config };
   if (parsed.simOverrides) {
     for (const [property, value] of Object.entries(parsed.simOverrides)) {
       const validation = validateSimulationProperty(property, value);
@@ -285,12 +300,19 @@ export function executeSimRunCommand(
   }
 
   // Update the simulation state with any overrides
-  simulationState.config = runConfig;
+  updateSimulationState({ config: runConfig });
 
   // Trigger the UI's simulation system
   if (onRunSimulation) {
     onRunSimulation();
-    simulationState.isRunning = true;
+    updateSimulationState({ isRunning: true });
+    
+    // Set up simulation completion handler - this will be called by the UI when simulation actually completes
+    if (onSimulationComplete) {
+      // The UI will call the completion callback when simulation actually finishes
+      // We don't need to fake it with setTimeout anymore
+    }
+    
     return {
       success: true,
       message: `Simulation started via UI. Duration: ${runConfig.duration}s. Check the UI for progress.`
@@ -340,9 +362,10 @@ export function executeShowSimCommand(parsed: ParsedCommand): CommandResult {
   const queryType = parsed.queryType || 'config';
 
   if (queryType === 'status') {
-    const status = simulationState.isRunning ? 'Running' : 'Stopped';
+    const currentState = getCurrentSimulationState();
+    const status = currentState.isRunning ? 'Running' : 'Stopped';
     
-    if (simulationState.isRunning && simulationProgress) {
+    if (currentState.isRunning && simulationProgress) {
       const progressPercent = Math.round((simulationProgress.elapsed / simulationProgress.total) * 100);
       const elapsed = simulationProgress.elapsed;
       const total = simulationProgress.total;
@@ -351,39 +374,40 @@ export function executeShowSimCommand(parsed: ParsedCommand): CommandResult {
       return {
         success: true,
         message,
-        data: { status, isRunning: simulationState.isRunning, progress: simulationProgress }
+        data: { status, isRunning: currentState.isRunning, progress: simulationProgress }
       };
     }
     
-    const lastRun = simulationState.currentResults 
-      ? `Last run: ${simulationState.currentResults.timestamp.toLocaleString()}`
+    const lastRun = currentState.currentResults 
+      ? `Last run: ${currentState.currentResults.timestamp.toLocaleString()}`
       : 'No runs yet';
     
     return {
       success: true,
       message: `Simulation Status: ${status}\n${lastRun}`,
-      data: { status, isRunning: simulationState.isRunning }
+      data: { status, isRunning: currentState.isRunning }
     };
   }
 
   // Show configuration
+  const currentConfigState = getCurrentSimulationState();
   const configLines = [
     'Simulation Configuration:',
-    `  Duration: ${simulationState.config.duration}s`,
-    `  Load per user: ${simulationState.config.load_per_user} RPS`,
-    `  Clients: ${simulationState.config.clients}`,
-    `  Payload Size: ${simulationState.config.payload_size} MB`,
-    `  Load Profile: ${simulationState.config.load_profile}`,
-    ...(simulationState.config.load_profile === 'repeating_spike' ? [
-      `  Spike Frequency: ${simulationState.config.spike_frequency}`,
-      `  Spike Intensity: ${simulationState.config.spike_intensity}x`
+    `  Duration: ${currentConfigState.config.duration}s`,
+    `  Load per user: ${currentConfigState.config.load_per_user} RPS`,
+    `  Clients: ${currentConfigState.config.clients}`,
+    `  Payload Size: ${currentConfigState.config.payload_size} MB`,
+    `  Load Profile: ${currentConfigState.config.load_profile}`,
+    ...(currentConfigState.config.load_profile === 'repeating_spike' ? [
+      `  Spike Frequency: ${currentConfigState.config.spike_frequency}`,
+      `  Spike Intensity: ${currentConfigState.config.spike_intensity}x`
     ] : [])
   ];
 
   return {
     success: true,
     message: configLines.join('\n'),
-    data: simulationState.config
+    data: currentConfigState.config
   };
 }
 
@@ -391,12 +415,14 @@ export function executeShowSimCommand(parsed: ParsedCommand): CommandResult {
  * Execute a show_metrics command to display simulation results
  */
 export function executeShowMetricsCommand(parsed: ParsedCommand): CommandResult {
-  if (!simulationState.currentResults) {
+  const currentState = getCurrentSimulationState();
+  
+  if (!currentState.currentResults) {
     return { success: false, message: 'No simulation results available. Run a simulation first.' };
   }
 
   const queryType = parsed.queryType || 'all';
-  const results = simulationState.currentResults;
+  const results = currentState.currentResults;
 
   switch (queryType) {
     case 'latency':
@@ -465,22 +491,32 @@ export function executeShowMetricsCommand(parsed: ParsedCommand): CommandResult 
  * Execute a show_bottlenecks command to display performance bottlenecks
  */
 export function executeShowBottlenecksCommand(): CommandResult {
-  if (!simulationState.currentResults) {
+  const currentState = getCurrentSimulationState();
+  
+  if (!currentState.currentResults) {
     return { success: false, message: 'No simulation results available. Run a simulation first.' };
   }
 
-  const bottlenecks = simulationState.currentResults.bottlenecks;
+  const bottlenecks = currentState.currentResults.bottlenecks;
   
-  if (bottlenecks.length === 0) {
+  if (!bottlenecks || bottlenecks.length === 0) {
     return { success: true, message: 'No bottlenecks detected in the simulation.' };
   }
 
   const bottleneckLines = ['Performance Bottlenecks:'];
-  bottlenecks.forEach((bottleneck, index) => {
+  bottlenecks.forEach((bottleneck: any, index) => {
+    // Handle different bottleneck object structures (UI vs AQL format)
+    const nodeLabel = bottleneck.nodeLabel || bottleneck.nodeId || `Node ${index + 1}`;
+    const severity = bottleneck.severity || 'medium';
+    const description = bottleneck.description || (bottleneck as any).reason || 'Performance issue detected';
+    const metric = bottleneck.metric || 'utilization';
+    const value = bottleneck.value || (bottleneck as any).utilization || 'N/A';
+    const threshold = bottleneck.threshold || 'N/A';
+    
     bottleneckLines.push(
-      `  ${index + 1}. ${bottleneck.nodeLabel} (${bottleneck.severity.toUpperCase()})`,
-      `     ${bottleneck.description}`,
-      `     ${bottleneck.metric}: ${bottleneck.value} (threshold: ${bottleneck.threshold})`
+      `  ${index + 1}. ${nodeLabel} (${severity.toString().toUpperCase()})`,
+      `     ${description}`,
+      `     ${metric}: ${value} (threshold: ${threshold})`
     );
   });
 

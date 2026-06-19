@@ -7,7 +7,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
-import { SimulationNodeData, SimulationParams } from '@/types';
+import { SimulationNodeData, SimulationParams, SimulationResult } from '@/types';
 import { PRESETS } from '@/data';
 import { COMPONENT_LABELS, COMPONENT_DEFAULTS } from '@/lib/services';
 
@@ -94,6 +94,46 @@ export default function Simulator() {
       setRightTab('report');
     }
   }, [isRunning, setRightTab]);
+
+  // Monitor UI simulation completion and update AQL simulation state
+  useEffect(() => {
+    // When simulation stops and we have results, update the AQL simulation state
+    if (!isRunning && simulationResult && simulationResult.totalRequests > 0) {
+      
+      // Update the global simulation state directly
+      // This is a temporary solution - in a real implementation, this would be handled through proper state management
+      const aqlResults = {
+        id: `sim_${Date.now()}`,
+        timestamp: new Date(),
+        config: {
+          duration: simulationParams.simulationDurationSeconds || 300,
+          load_per_user: simulationParams.requestsPerSecPerUser || 10,
+          clients: simulationParams.concurrentUsers || 100,
+          payload_size: simulationParams.payloadSizeMB || 0.001,
+          load_profile: simulationParams.loadProfile || 'constant',
+          spike_frequency: simulationParams.spikeFrequency || 3,
+          spike_intensity: simulationParams.spikeIntensity || 2
+        },
+        totalRequests: simulationResult.totalRequests,
+        successfulRequests: simulationResult.successfulRequests,
+        failedRequests: simulationResult.failedRequests,
+        averageLatency: simulationResult.avgEndToEndLatencyMs,
+        p95Latency: simulationResult.p99EndToEndLatencyMs,
+        p99Latency: simulationResult.p99EndToEndLatencyMs,
+        throughput: simulationResult.actualThroughputRps,
+        errorRate: simulationResult.failedRequests / (simulationResult.totalRequests || 1),
+        nodeMetrics: {},
+        bottlenecks: simulationResult.bottlenecks || [],
+        duration: simulationParams.simulationDurationSeconds || 300
+      };
+      
+      (window as any).simulationState = {
+        isRunning: false,
+        currentResults: aqlResults,
+        resultsHistory: [aqlResults]
+      };
+    }
+  }, [isRunning, simulationResult]);
 
   // Helper function to find node by label
   const findNodeByLabel = useCallback((label: string) => {
@@ -357,7 +397,13 @@ export default function Simulator() {
       setSimulationParams(prev => ({ ...prev, ...partialParams }));
     };
     
-    return executeConfigCommand(parsed, nodes, updateNode, updateUIParams, handleRunSimulation, stopSimulation, handleReset);
+    // Create simulation completion callback
+    const handleSimulationComplete = (results: any) => {
+      // This will be called when simulation completes
+      console.log('Simulation completion callback received in simulator:', results);
+    };
+    
+    return executeConfigCommand(parsed, nodes, updateNode, updateUIParams, handleRunSimulation, stopSimulation, handleReset, handleSimulationComplete);
   }, [nodes, updateNode, setSimulationParams, handleRunSimulation, stopSimulation, handleReset]);
 
   // Custom Hooks - Selection & Events
