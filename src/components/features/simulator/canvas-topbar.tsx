@@ -9,19 +9,22 @@ import {
 } from '@/components/ui/select';
 import { PRESETS } from '@/data';
 import { Button } from '@/components/ui/button';
+import { Terminal } from 'lucide-react';
 
 interface Props {
   loadPreset: (id: string | null) => void;
   onSave: () => void;
   onReset: () => void;
   selectedDesignName: string | null;
+  onToggleTerminal: () => void;
+  isTerminalOpen: boolean;
 }
 
-export default function CanvasTopBar({ loadPreset, onSave, onReset, selectedDesignName }: Props) {
+export default function CanvasTopBar({ loadPreset, onSave, onReset, selectedDesignName, onToggleTerminal, isTerminalOpen }: Props) {
   return (
     <div className="h-12 border-b bg-white flex items-center justify-between px-4">
 
-    {/* LEFT — PRESETS */}
+    {/* LEFT — PRESETS & TERMINAL */}
     <div className="flex items-center gap-2">
 
       <Select onValueChange={loadPreset}>
@@ -70,6 +73,18 @@ export default function CanvasTopBar({ loadPreset, onSave, onReset, selectedDesi
           {selectedDesignName}
         </span>
       )}
+
+      <Button
+        size="icon"
+        onClick={onToggleTerminal}
+        className={`h-8 w-8 transition-all duration-200 ${
+          isTerminalOpen
+            ? 'bg-purple-500/20 text-purple-700 border border-purple-300 hover:bg-purple-500/30 hover:border-purple-400'
+            : 'bg-purple-500/10 text-purple-600 border border-purple-200 hover:bg-purple-500/20 hover:border-purple-300'
+        }`}
+      >
+        <Terminal className="w-4 h-4" />
+      </Button>
     </div>
 
     {/* RIGHT — ACTIONS */}

@@ -37,6 +37,16 @@ export function useKeyboardShortcuts({
 }: UseKeyboardShortcutsProps) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      // Don't trigger shortcuts if user is typing in an input field
+      const activeElement = document.activeElement;
+      const isInputFocused = activeElement instanceof HTMLInputElement || 
+                           activeElement instanceof HTMLTextAreaElement ||
+                           (activeElement as HTMLElement)?.isContentEditable;
+      
+      if (isInputFocused) {
+        return;
+      }
+
       // Escape to clear selection
       if (event.key === 'Escape') {
         setSelectedNode(null);

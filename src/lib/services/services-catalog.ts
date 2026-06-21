@@ -1,4 +1,4 @@
-import { AwsServiceOption, ComponentType } from '@/types';
+import { AwsServiceOption, ComponentType, ComponentConfig } from '@/types';
 
 // Helper function to add pricing metadata to services
 function withPricing(service: Omit<AwsServiceOption, 'pricingLastUpdated' | 'pricingDisclaimer'>): AwsServiceOption {
@@ -440,3 +440,35 @@ export const COMPONENT_COLORS: Record<ComponentType, string> = {
   notification_service: '#84cc16',
   rate_limiter: '#dc2626',
 };
+
+/**
+ * Get default configuration for a component type based on its default service
+ */
+export function getDefaultConfigForComponent(componentType: ComponentType): ComponentConfig {
+  const defaultServiceId = COMPONENT_DEFAULTS[componentType];
+  const service = getServiceById(defaultServiceId);
+  
+  if (!service) {
+    // Fallback to empty config with required serviceId
+    return {
+      serviceId: defaultServiceId,
+    };
+  }
+  
+  return {
+    serviceId: defaultServiceId,
+    customLatencyMs: undefined,
+    customMaxRps: undefined,
+    customCostPerHour: undefined,
+    cacheTtlSeconds: undefined,
+    cacheHitRate: componentType === 'cache' ? 0.8 : undefined,
+    queueMaxMessages: undefined,
+    queueProcessingTimeMs: componentType === 'message_queue' ? 100 : undefined,
+    rateLimitAlgorithm: undefined,
+    rateLimitBucketSize: undefined,
+    rateLimitRefillRate: undefined,
+    rateLimitWindowSeconds: undefined,
+    rateLimitMaxRequests: undefined,
+    redisCounterTtlSeconds: undefined,
+  };
+}

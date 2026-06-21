@@ -9,11 +9,12 @@ export function useResizable(
   initial: number,
   min: number,
   max: number,
-  inverted = false
+  inverted = false,
+  direction: 'horizontal' | 'vertical' = 'horizontal'
 ): UseResizableReturn {
   const sizeRef = useRef(initial);
   const [size, setSize] = useState(initial);
-  const startX = useRef(0);
+  const startPos = useRef(0);
   const startSize = useRef(initial);
 
   useEffect(() => {
@@ -22,14 +23,17 @@ export function useResizable(
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
-    startX.current = e.clientX;
+    startPos.current = direction === 'horizontal' ? e.clientX : e.clientY;
     startSize.current = sizeRef.current;
-    document.body.style.cursor = 'col-resize';
+    document.body.style.cursor = direction === 'horizontal' ? 'col-resize' : 'row-resize';
     document.body.style.userSelect = 'none';
 
     const onMouseMove = (ev: MouseEvent) => {
-      const delta = (ev.clientX - startX.current) * (inverted ? -1 : 1);
-      const next = Math.min(max, Math.max(min, startSize.current + delta));
+      const delta = direction === 'horizontal' 
+        ? (ev.clientX - startPos.current) 
+        : (ev.clientY - startPos.current);
+      const adjustedDelta = delta * (inverted ? -1 : 1);
+      const next = Math.min(max, Math.max(min, startSize.current + adjustedDelta));
       sizeRef.current = next;
       setSize(next);
     };
@@ -43,7 +47,7 @@ export function useResizable(
 
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
-  }, [min, max, inverted]);
+  }, [min, max, inverted, direction]);
 
   return { size, onMouseDown };
 }

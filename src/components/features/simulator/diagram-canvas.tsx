@@ -103,7 +103,7 @@ export default function DiagramCanvas({
         className="bg-gray-50"
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#d1d5db" />
-        <Controls className="!bg-white !border !shadow-md !rounded-lg" />
+        <Controls className="!bg-white !border !shadow-md !rounded-lg" showInteractive={false} />
         {!isMinimapCollapsed && (
           <Panel position="bottom-right" className="!p-0">
             <MiniMap
