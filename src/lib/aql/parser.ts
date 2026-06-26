@@ -1,7 +1,7 @@
 import { ComponentConfig, RateLimitAlgorithm } from '@/types';
 
 export interface ParsedCommand {
-  type: 'set' | 'config' | 'reset_config' | 'sim_set' | 'sim_config' | 'sim_run' | 'sim_stop' | 'sim_reset' | 'show_sim' | 'show_metrics' | 'show_bottlenecks' | 'unknown';
+  type: 'set' | 'config' | 'reset_config' | 'sim_set' | 'sim_config' | 'sim_run' | 'sim_stop' | 'sim_reset' | 'show_sim' | 'show_metrics' | 'show_bottlenecks' | 'load_preset' | 'save_preset' | 'delete_preset' | 'list_preset' | 'unknown';
   label?: string;
   property?: string;
   value?: string | number | boolean;
@@ -11,6 +11,8 @@ export interface ParsedCommand {
   simProperties?: Record<string, string | number | boolean>;
   simOverrides?: Record<string, string | number | boolean>;
   queryType?: string;
+  presetName?: string;
+  presetDescription?: string;
   error?: string;
 }
 
@@ -325,6 +327,103 @@ export function parseShowBottlenecksCommand(command: string): ParsedCommand {
 }
 
 /**
+ * Parse a load preset command
+ * Syntax: load_preset <preset_name>
+ * Preset names can contain spaces (e.g., "Url Shortener")
+ */
+export function parseLoadPresetCommand(command: string): ParsedCommand {
+  const parts = command.trim().split(/\s+/);
+  
+  if (parts.length < 2) {
+    return { type: 'unknown', error: 'Invalid load_preset command. Usage: load_preset <preset_name>' };
+  }
+  
+  // Preset name can contain spaces, so take everything after the command
+  const presetName = parts.slice(1).join(' ');
+  
+  return {
+    type: 'load_preset',
+    presetName
+  };
+}
+
+/**
+ * Parse a save preset command
+ * Syntax: save_preset <preset_name> [as "<description>"]
+ */
+export function parseSavePresetCommand(command: string): ParsedCommand {
+  const parts = command.trim().split(/\s+/);
+  
+  if (parts.length < 2) {
+    return { type: 'unknown', error: 'Invalid save_preset command. Usage: save_preset <preset_name> [as "<description>"]' };
+  }
+  
+  const presetName = parts[1];
+  let presetDescription: string | undefined;
+  
+  // Check for optional "as" keyword and description
+  const asIndex = parts.findIndex((part, index) => index >= 2 && part.toLowerCase() === 'as');
+  
+  if (asIndex !== -1) {
+    if (asIndex + 1 >= parts.length) {
+      return { type: 'unknown', error: 'Invalid save_preset command. Missing description after "as"' };
+    }
+    
+    // Join remaining parts as description (in case it has spaces)
+    presetDescription = parts.slice(asIndex + 1).join(' ');
+    
+    // Remove quotes if present
+    if ((presetDescription.startsWith('"') && presetDescription.endsWith('"')) || 
+        (presetDescription.startsWith("'") && presetDescription.endsWith("'"))) {
+      presetDescription = presetDescription.slice(1, -1);
+    }
+  }
+  
+  return {
+    type: 'save_preset',
+    presetName,
+    presetDescription
+  };
+}
+
+/**
+ * Parse a delete preset command
+ * Syntax: delete_preset <preset_name>
+ */
+export function parseDeletePresetCommand(command: string): ParsedCommand {
+  const parts = command.trim().split(/\s+/);
+  
+  if (parts.length < 2) {
+    return { type: 'unknown', error: 'Invalid delete_preset command. Usage: delete_preset <preset_name>' };
+  }
+  
+  if (parts.length > 2) {
+    return { type: 'unknown', error: 'Invalid delete_preset command. Too many arguments. Usage: delete_preset <preset_name>' };
+  }
+  
+  const presetName = parts[1];
+  
+  return {
+    type: 'delete_preset',
+    presetName
+  };
+}
+
+/**
+ * Parse a list preset command
+ * Syntax: list_preset
+ */
+export function parseListPresetCommand(command: string): ParsedCommand {
+  const parts = command.trim().split(/\s+/);
+  
+  if (parts.length > 1) {
+    return { type: 'unknown', error: 'Invalid list_preset command. Usage: list_preset' };
+  }
+  
+  return { type: 'list_preset' };
+}
+
+/**
  * Main parser function that routes to the appropriate parser
  */
 export function parseAQLCommand(command: string): ParsedCommand {
@@ -373,6 +472,22 @@ export function parseAQLCommand(command: string): ParsedCommand {
   
   if (cmd === 'show_bottlenecks') {
     return parseShowBottlenecksCommand(command);
+  }
+  
+  if (cmd === 'load_preset') {
+    return parseLoadPresetCommand(command);
+  }
+  
+  if (cmd === 'save_preset') {
+    return parseSavePresetCommand(command);
+  }
+  
+  if (cmd === 'delete_preset') {
+    return parseDeletePresetCommand(command);
+  }
+  
+  if (cmd === 'list_preset') {
+    return parseListPresetCommand(command);
   }
   
   return { type: 'unknown', error: `Unknown command: ${cmd}` };

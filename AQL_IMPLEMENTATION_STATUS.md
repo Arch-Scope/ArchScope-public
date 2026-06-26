@@ -10,19 +10,19 @@ AQL is a declarative-imperative domain-specific language for defining, configuri
 
 ### ✅ **Fully Implemented**
 - **Configuration Commands** (`set`, `config`, `reset config`) with full validation and error handling
-- **Basic Architecture Commands** (`add`, `remove`, `connect`, `disconnect`, `rename`) 
+- **Basic Architecture Commands** (`add`, `remove`, `connect`, `disconnect`, `rename`)
 - **Query Commands** (`show_nodes`, `show_connections`)
 - **Simulation Commands** (`sim_set`, `sim_config`, `sim_run`, `sim_stop`, `sim_reset`) with validation
 - **Simulation Query Commands** (`show_sim`, `show_metrics`, `show_bottlenecks`) with result display
-- **Help System** (`help`, `--help` flags) for all implemented commands including simulation
+- **Preset Commands** (`load_preset`, `save_preset`, `delete_preset`, `list_preset`) with DB integration
+- **Help System** (`help`, `--help` flags) for all implemented commands including simulation and presets
 - **Terminal Management** (`clear` terminal command)
 - **Property Aliases** - supports multiple naming conventions (e.g., `max_rps`, `max-rps` → `maxrps`)
 - **Strict Validation** - rejects invalid values, enforces ranges, validates algorithms
 - **Simulation State Management** - maintains configuration, results, and history
 
 ### ❌ **Not Yet Implemented**
-- **Advanced Query Commands** (`describe`, `show_cost`, `show_latency`, `show_timeseries`, `show_services`, `show_presets`)
-- **Preset Commands** (`load_preset`, `save_preset`, `delete_preset`, `clear_all`)
+- **Advanced Query Commands** (`describe`, `show_cost`, `show_latency`, `show_timeseries`, `show_services`)
 - **Output Commands** (`report`, `export`, `import`, `assert`, `compare`)
 - **Advanced Architecture Features** (`using <service_id>`, `label "<label>"` in add commands)
 
@@ -37,6 +37,7 @@ AQL is a declarative-imperative domain-specific language for defining, configuri
    - [Configuration Commands](#configuration-commands)
    - [Simulation Commands](#simulation-commands)
    - [Query Commands](#query-commands)
+   - [Preset Commands](#preset-commands)
 4. [Component Types](#component-types)
 5. [Property Reference](#property-reference)
 6. [Full Examples](#full-examples)
@@ -637,6 +638,145 @@ clear
 
 ---
 
+### Preset Commands
+
+These commands manage architecture presets for saving, loading, and organizing reusable designs.
+
+**✅ Implementation Note:** Fully implemented with DB integration. Built-in presets are stored in `src/data/presets.ts` (read-only), while user-created presets are stored in the database via `/api/designs`. Requires authentication (token) for user preset operations.
+
+---
+
+#### `load_preset`
+
+Loads a saved architecture preset and replaces the current architecture.
+
+```
+load_preset <preset_name>
+```
+
+- `<preset_name>` — Name or ID of the preset to load (case-insensitive, can contain spaces)
+
+**Examples:**
+```aql
+load_preset demo
+load_preset Url Shortener
+load_preset my_custom_preset
+```
+
+**Expected Output:**
+- Success: `"Loaded preset "<preset_name>" with X nodes and Y connections"`
+- Error: `"Preset "<preset_name>" not found. Available presets: <list>"`
+
+**Side Effects:**
+- Replaces current architecture with the preset's nodes and edges
+- Updates simulation parameters to preset's configuration
+- Updates the current design name displayed in the UI
+- Clears any existing simulation results
+- Updates the React Flow canvas with new nodes/edges
+
+---
+
+#### `save_preset`
+
+Saves the current architecture as a new preset to the database.
+
+```
+save_preset <preset_name> [as "<description>"]
+```
+
+- `<preset_name>` — Name for the new preset (alphanumeric, underscores, hyphens only)
+- `<description>` — Optional description in quotes
+
+**Examples:**
+```aql
+save_preset my_api_arch
+save_preset production_setup as "Production API architecture with caching"
+save_preset microservices_demo as "Demo microservices pattern"
+```
+
+**Expected Output:**
+- Success: `"Saved preset "<preset_name>" with X nodes and Y connections"`
+- Error: `"Preset "<preset_name>" already exists. Use delete_preset first or choose a different name"`
+- Error: `"Invalid preset name. Use alphanumeric characters, underscores, or hyphens only"`
+- Error: `"No architecture to save. Add nodes and connections first"`
+
+**Side Effects:**
+- Saves current architecture (nodes, edges) as a new preset
+- Saves current simulation parameters
+- Stores in database via `/api/designs` (requires authentication)
+- Preset becomes available for future `load_preset` commands
+
+---
+
+#### `delete_preset`
+
+Deletes a user-created preset with confirmation prompt.
+
+```
+delete_preset <preset_name>
+```
+
+- `<preset_name>` — Name or ID of the preset to delete (case-insensitive)
+
+**Confirmation Flow:**
+1. First output: `"Are you sure you want to delete preset "<preset_name>"? (Y to confirm, any other key to cancel)"`
+2. Wait for user input
+3. If user enters 'Y' or 'y': proceed with deletion
+4. If user enters any other key: cancel deletion
+
+**Examples:**
+```aql
+delete_preset my_custom_preset
+```
+
+**Expected Output:**
+- After confirmation (Y): `"Deleted preset "<preset_name>""`
+- After cancellation: `"Deletion cancelled"`
+- Error: `"Preset "<preset_name>" not found"`
+- Error: `"Cannot delete built-in preset "<preset_name>". Only user-created presets can be deleted"`
+- Error: `"Please login to delete presets"`
+
+**Side Effects:**
+- Removes preset from database via `/api/designs` (only if confirmed, requires authentication)
+- Preset no longer available for loading
+- Does not affect current architecture
+
+---
+
+#### `list_preset`
+
+Lists all available presets with detailed information.
+
+```
+list_preset
+```
+
+**Examples:**
+```aql
+list_preset
+```
+
+**Expected Output:**
+```
+Available Presets:
+  demo (built-in)
+    Demo architecture with rate limiter, message queue, and workers
+    Nodes: 12 | Connections: 13
+  
+  Url Shortener (built-in)
+    Shorten long URLs and redirect via short codes
+    Nodes: 8 | Connections: 9
+  
+  my_custom_preset (user-created)
+    My custom architecture
+    Nodes: 5 | Connections: 4
+```
+
+**Side Effects:**
+- None (read-only query)
+
+---
+
 ## Component Types
 
 | Type | Description |
@@ -821,12 +961,11 @@ show_sim status
 ## Current Limitations
 
 1. **Limited Service Selection:** Cannot specify `USING <service_id>` or custom `LABEL` in ADD commands
-2. **No Preset Management:** Cannot save/load architecture presets
-3. **No Advanced Queries:** Cannot view detailed node information (`describe`), cost analysis (`show_cost`), or time series data (`show_timeseries`)
-4. **No Export/Import:** Cannot save architectures to files or import scripts
-5. **No Performance Validation:** Cannot assert performance requirements or compare designs
-6. **No Filtering:** Cannot filter queries (e.g., `show_nodes WHERE type = api_server`)
-7. **No Service Management:** Cannot show available services (`show_services`) or presets (`show_presets`)
+2. **No Advanced Queries:** Cannot view detailed node information (`describe`), cost analysis (`show_cost`), or time series data (`show_timeseries`)
+3. **No Export/Import:** Cannot save architectures to files or import scripts
+4. **No Performance Validation:** Cannot assert performance requirements or compare designs
+5. **No Filtering:** Cannot filter queries (e.g., `show_nodes WHERE type = api_server`)
+6. **No Service Management:** Cannot show available services (`show_services`)
 
 ---
 
@@ -834,10 +973,9 @@ show_sim status
 
 To reach the full AQL specification, the following features need to be implemented:
 
-1. **Advanced Queries** - `describe`, `show_cost`, `show_latency`, `show_timeseries`, `show_services`, `show_presets`
-2. **Preset Management** - `load_preset`, `save_preset`, `delete_preset`, `clear_all`
-3. **Output Commands** - `report`, `export`, `import`, `assert`, `compare`
-4. **Enhanced Architecture** - `using <service_id>`, `label "<label>"` in ADD commands
-5. **Advanced Filtering** - `show_nodes WHERE type = api_server`
-6. **Performance Validation** - Enhanced bottleneck detection and performance assertions
-7. **Real-time Simulation** - Live simulation updates and interactive monitoring
+1. **Advanced Queries** - `describe`, `show_cost`, `show_latency`, `show_timeseries`, `show_services`
+2. **Output Commands** - `report`, `export`, `import`, `assert`, `compare`
+3. **Enhanced Architecture** - `using <service_id>`, `label "<label>"` in ADD commands
+4. **Advanced Filtering** - `show_nodes WHERE type = api_server`
+5. **Performance Validation** - Enhanced bottleneck detection and performance assertions
+6. **Real-time Simulation** - Live simulation updates and interactive monitoring

@@ -346,7 +346,7 @@ export default function Simulator() {
   }, [edges, nodes]);
 
   // AQL Configuration Command Handlers
-  const handleSetConfig = useCallback((command: string) => {
+  const handleSetConfig = useCallback(async (command: string) => {
     const parsed = parseAQLCommand(command);
     if (parsed.type === 'unknown') {
       return {
@@ -354,23 +354,11 @@ export default function Simulator() {
         message: parsed.error || 'Invalid command',
       };
     }
-    
-    return executeConfigCommand(parsed, nodes, updateNode);
-  }, [nodes, updateNode]);
 
-  const handleMultiConfig = useCallback((command: string) => {
-    const parsed = parseAQLCommand(command);
-    if (parsed.type === 'unknown') {
-      return {
-        success: false,
-        message: parsed.error || 'Invalid command',
-      };
-    }
-    
-    return executeConfigCommand(parsed, nodes, updateNode);
-  }, [nodes, updateNode]);
+    return executeConfigCommand(parsed, nodes, edges, updateNode);
+  }, [nodes, edges, updateNode]);
 
-  const handleResetConfig = useCallback((command: string) => {
+  const handleMultiConfig = useCallback(async (command: string) => {
     const parsed = parseAQLCommand(command);
     if (parsed.type === 'unknown') {
       return {
@@ -378,12 +366,24 @@ export default function Simulator() {
         message: parsed.error || 'Invalid command',
       };
     }
-    
-    return executeConfigCommand(parsed, nodes, updateNode);
-  }, [nodes, updateNode]);
+
+    return executeConfigCommand(parsed, nodes, edges, updateNode);
+  }, [nodes, edges, updateNode]);
+
+  const handleResetConfig = useCallback(async (command: string) => {
+    const parsed = parseAQLCommand(command);
+    if (parsed.type === 'unknown') {
+      return {
+        success: false,
+        message: parsed.error || 'Invalid command',
+      };
+    }
+
+    return executeConfigCommand(parsed, nodes, edges, updateNode);
+  }, [nodes, edges, updateNode]);
 
   // General AQL Command Handler (for simulation commands and others)
-  const handleAQLCommand = useCallback((command: string) => {
+  const handleAQLCommand = useCallback(async (command: string) => {
     const parsed = parseAQLCommand(command);
     if (parsed.type === 'unknown') {
       return {
@@ -391,20 +391,40 @@ export default function Simulator() {
         message: parsed.error || 'Invalid command',
       };
     }
-    
+
+    // Get token from localStorage
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') || undefined : undefined;
+
     // Create a wrapper function that handles partial updates
     const updateUIParams = (partialParams: Partial<SimulationParams>) => {
       setSimulationParams(prev => ({ ...prev, ...partialParams }));
     };
-    
+
     // Create simulation completion callback
     const handleSimulationComplete = (results: any) => {
       // This will be called when simulation completes
       console.log('Simulation completion callback received in simulator:', results);
     };
-    
-    return executeConfigCommand(parsed, nodes, updateNode, updateUIParams, handleRunSimulation, stopSimulation, handleReset, handleSimulationComplete);
-  }, [nodes, updateNode, setSimulationParams, handleRunSimulation, stopSimulation, handleReset]);
+
+    return executeConfigCommand(
+      parsed,
+      nodes,
+      edges,
+      updateNode,
+      setNodes,
+      setEdges,
+      setSimulationParams,
+      simulationParams,
+      updateUIParams,
+      handleRunSimulation,
+      stopSimulation,
+      handleReset,
+      handleSimulationComplete,
+      undefined,
+      token,
+      setCurrentDesignName
+    );
+  }, [nodes, edges, updateNode, setNodes, setEdges, setSimulationParams, simulationParams, handleRunSimulation, stopSimulation, handleReset, setCurrentDesignName]);
 
   // Custom Hooks - Selection & Events
   const selection = useSelection(nodes, reactFlowRef);

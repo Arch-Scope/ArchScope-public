@@ -1,4 +1,4 @@
-import { Node } from '@xyflow/react';
+import { Node, Edge } from '@xyflow/react';
 import { SimulationNodeData, ComponentConfig, SimulationParams } from '@/types';
 import { getServiceById, getDefaultConfigForComponent } from '@/lib/services';
 import { ParsedCommand, mapPropertyToConfigField, convertValueForField } from './parser';
@@ -12,10 +12,18 @@ import {
   executeShowMetricsCommand,
   executeShowBottlenecksCommand
 } from './simulation-handlers';
+import {
+  executeLoadPresetCommand,
+  executeSavePresetCommand,
+  executeDeletePresetCommand,
+  executeListPresetCommand
+} from './preset-handlers';
 
 export interface CommandResult {
   success: boolean;
   message: string;
+  pendingConfirmation?: boolean;
+  confirmationPrompt?: string;
 }
 
 /**
@@ -161,16 +169,24 @@ export function executeResetConfigCommand(
 /**
  * Execute any parsed configuration command
  */
-export function executeConfigCommand(
+export async function executeConfigCommand(
   parsed: ParsedCommand,
   nodes: Node<SimulationNodeData>[],
+  edges: Edge[],
   updateNode: (nodeId: string, data: Partial<SimulationNodeData>) => void,
+  setNodes?: (nodes: Node<SimulationNodeData>[]) => void,
+  setEdges?: (edges: Edge[]) => void,
+  setSimulationParams?: (params: SimulationParams) => void,
+  currentSimulationParams?: SimulationParams,
   onUpdateUIParams?: (params: Partial<SimulationParams>) => void,
   onRunSimulation?: () => void,
   onStopSimulation?: () => void,
   onResetSimulation?: () => void,
-  onSimulationComplete?: (results: any) => void
-): CommandResult {
+  onSimulationComplete?: (results: any) => void,
+  deleteConfirmed?: boolean,
+  token?: string,
+  setCurrentDesignName?: (name: string) => void
+): Promise<CommandResult> {
   switch (parsed.type) {
     case 'set':
       return executeSetCommand(parsed, nodes, updateNode);
@@ -194,6 +210,20 @@ export function executeConfigCommand(
       return executeShowMetricsCommand(parsed);
     case 'show_bottlenecks':
       return executeShowBottlenecksCommand();
+    case 'load_preset':
+      if (!setNodes || !setEdges || !setSimulationParams) {
+        return { success: false, message: 'Missing required callbacks for load_preset' };
+      }
+      return executeLoadPresetCommand(parsed, setNodes, setEdges, setSimulationParams, setCurrentDesignName, token);
+    case 'save_preset':
+      if (!currentSimulationParams) {
+        return { success: false, message: 'Missing current simulation params for save_preset' };
+      }
+      return executeSavePresetCommand(parsed, nodes, edges, currentSimulationParams, token);
+    case 'delete_preset':
+      return executeDeletePresetCommand(parsed, deleteConfirmed || false, token);
+    case 'list_preset':
+      return executeListPresetCommand(token);
     default:
       return { success: false, message: parsed.error || 'Unknown command' };
   }
