@@ -53,6 +53,26 @@ export function useSimulatorState() {
     }
   }, [nodes, edges, simulationParams, hydrated]);
 
+  // Sync simulationParams with AQL terminal's window state
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const currentState = (window as any).simulationState || { config: {} };
+      (window as any).simulationState = {
+        ...currentState,
+        config: {
+          ...currentState.config,
+          duration: simulationParams.simulationDurationSeconds,
+          load_per_user: simulationParams.requestsPerSecPerUser,
+          clients: simulationParams.concurrentUsers,
+          payload_size: simulationParams.payloadSizeMB,
+          load_profile: simulationParams.loadProfile,
+          spike_frequency: simulationParams.spikeFrequency,
+          spike_intensity: simulationParams.spikeIntensity
+        }
+      };
+    }
+  }, [simulationParams]);
+
   // Save current state to history
   const saveToHistory = useCallback(() => {
     undoRedoRef.current.saveState(nodesRef.current, edgesRef.current);
