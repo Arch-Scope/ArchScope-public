@@ -1,7 +1,7 @@
 import { ComponentConfig, RateLimitAlgorithm } from '@/types';
 
 export interface ParsedCommand {
-  type: 'set' | 'config' | 'reset_config' | 'sim_set' | 'sim_config' | 'sim_run' | 'sim_stop' | 'sim_reset' | 'show_sim' | 'show_metrics' | 'show_bottlenecks' | 'load_preset' | 'save_preset' | 'delete_preset' | 'list_preset' | 'unknown';
+  type: 'set' | 'config' | 'reset_config' | 'sim_set' | 'sim_config' | 'sim_run' | 'sim_stop' | 'sim_reset' | 'show_sim' | 'show_metrics' | 'show_bottlenecks' | 'show_services' | 'load_preset' | 'save_preset' | 'delete_preset' | 'list_preset' | 'unknown';
   label?: string;
   property?: string;
   value?: string | number | boolean;
@@ -424,6 +424,23 @@ export function parseListPresetCommand(command: string): ParsedCommand {
 }
 
 /**
+ * Parse a show services command
+ * Syntax: show_services [component_type]
+ */
+export function parseShowServicesCommand(command: string): ParsedCommand {
+  const parts = command.trim().split(/\s+/);
+  
+  if (parts.length > 2) {
+    return { type: 'unknown', error: 'Invalid show_services command. Usage: show_services [component_type]' };
+  }
+  
+  return {
+    type: 'show_services',
+    queryType: parts[1] || 'all'
+  };
+}
+
+/**
  * Main parser function that routes to the appropriate parser
  */
 export function parseAQLCommand(command: string): ParsedCommand {
@@ -488,6 +505,10 @@ export function parseAQLCommand(command: string): ParsedCommand {
   
   if (cmd === 'list_preset') {
     return parseListPresetCommand(command);
+  }
+  
+  if (cmd === 'show_services') {
+    return parseShowServicesCommand(command);
   }
   
   return { type: 'unknown', error: `Unknown command: ${cmd}` };

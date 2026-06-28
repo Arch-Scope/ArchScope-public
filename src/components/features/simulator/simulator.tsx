@@ -169,6 +169,9 @@ export default function Simulator() {
       };
     }
 
+    // Use the provided serviceId or fall back to default
+    const finalServiceId = serviceId || COMPONENT_DEFAULTS[componentType];
+
     // Use label as the node ID
     const newNode: Node<SimulationNodeData> = {
       id: label,
@@ -178,7 +181,7 @@ export default function Simulator() {
         label: label,
         componentType: componentType,
         config: {
-          serviceId: serviceId || COMPONENT_DEFAULTS[componentType],
+          serviceId: finalServiceId,
           cacheHitRate: componentType === 'cache' ? 0.8 : undefined,
           queueProcessingTimeMs: componentType === 'message_queue' ? 100 : undefined,
         },
@@ -188,7 +191,7 @@ export default function Simulator() {
     setTimeout(() => saveToHistory(), 50);
     return {
       success: true,
-      message: `Added ${componentType} as ${label}`,
+      message: `Added ${componentType} as ${label} using ${finalServiceId}`,
     };
   }, [nodes.length, setNodes, saveToHistory, findNodeByLabel]);
 
