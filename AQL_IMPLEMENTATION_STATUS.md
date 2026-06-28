@@ -10,8 +10,8 @@ AQL is a declarative-imperative domain-specific language for defining, configuri
 
 ### ✅ **Fully Implemented**
 - **Configuration Commands** (`set`, `config`, `reset config`) with full validation and error handling
-- **Basic Architecture Commands** (`add`, `remove`, `connect`, `disconnect`, `rename`)
-- **Query Commands** (`show_nodes`, `show_connections`)
+- **Basic Architecture Commands** (`add`, `remove`, `connect`, `disconnect`, `rename`) with service selection support
+- **Query Commands** (`show_nodes`, `show_connections`, `show_services`) with filtering by component type
 - **Simulation Commands** (`sim_set`, `sim_config`, `sim_run`, `sim_stop`, `sim_reset`) with validation
 - **Simulation Query Commands** (`show_sim`, `show_metrics`, `show_bottlenecks`) with result display
 - **Preset Commands** (`load_preset`, `save_preset`, `delete_preset`, `list_preset`) with DB integration
@@ -20,11 +20,7 @@ AQL is a declarative-imperative domain-specific language for defining, configuri
 - **Property Aliases** - supports multiple naming conventions (e.g., `max_rps`, `max-rps` → `maxrps`)
 - **Strict Validation** - rejects invalid values, enforces ranges, validates algorithms
 - **Simulation State Management** - maintains configuration, results, and history
-
-### ❌ **Not Yet Implemented**
-- **Advanced Query Commands** (`describe`, `show_cost`, `show_latency`, `show_timeseries`, `show_services`)
-- **Output Commands** (`report`, `export`, `import`, `assert`, `compare`)
-- **Advanced Architecture Features** (`using <service_id>`, `label "<label>"` in add commands)
+- **Service Management** (`show_services`, `using <service_id>` in add commands) with catalog integration
 
 ---
 
@@ -76,24 +72,29 @@ These commands define and modify the topology — nodes and edges.
 
 ---
 
-#### `add` 
+#### `add`
 
 Adds a new component node to the architecture.
 
 ```
-add <component_type> as <name>
+add <component_type> as <name> [using <service_id>]
 ```
 
 - `<component_type>` — one of the 9 supported types (see [Component Types](#component-types))
 - `as <name>` — display label for the node
+- `using <service_id>` — optional: specify a specific cloud service from the catalog (default: uses component type default)
 
-**⚠️ Implementation Note:** Only supports basic `add <type> as <name>` syntax. Advanced features like `USING <service_id>` and `LABEL "<label>"` are not yet implemented. Uses default service for each component type.
+**✅ Features:**
+- **Service Selection**: Can specify custom service using `using <service_id>`
+- **Default Services**: Falls back to component type default if no service specified
+- **Service Discovery**: Use `show_services` to list available services for each component type
 
 **Examples:**
 ```aql
 add client as user_client
 add load_balancer as lb
 add api_server as api1
+add api_server as api2 using ec2_c5_xlarge
 add cache as redis1
 add database as db1
 add message_queue as mq
@@ -602,7 +603,7 @@ Simulation Results Summary:
 
 ---
 
-#### `show_bottlenecks` 
+#### `show_bottlenecks`
 
 Identifies and displays performance bottlenecks from simulation results.
 
@@ -624,6 +625,48 @@ Performance Bottlenecks:
   2. redis1 (MEDIUM)
      High latency detected
      latency: 85.3ms (threshold: 50.0ms)
+```
+
+---
+
+#### `show_services`
+
+Lists available cloud services from the service catalog.
+
+```
+show_services [component_type]
+```
+
+- `[component_type]` — optional: filter services by component type (e.g., `api_server`, `database`)
+
+**✅ Features:**
+- **Service Catalog**: Lists all available cloud services with pricing and performance specs
+- **Filtering**: Can filter by component type to see relevant services
+- **Service Details**: Shows cost, latency, max RPS for each service
+- **Service IDs**: Displays service_id for use with `add` command
+
+**Examples:**
+```aql
+show_services              -- Show all available services
+show_services api_server    -- Show only API server services
+show_services database      -- Show only database services
+```
+
+**Sample Output:**
+```
+Available Services:
+  api_server:
+    ec2_t3_medium - AWS EC2 t3.medium (AWS)
+      Cost: $0.052/hr, Latency: 15ms, Max RPS: 1000
+    ec2_c5_xlarge - AWS EC2 c5.xlarge (AWS)
+      Cost: $0.2125/hr, Latency: 10ms, Max RPS: 5000
+    lambda - AWS Lambda (AWS)
+      Cost: $0.00/hr, Latency: 50ms, Max RPS: 10000
+  database:
+    rds_t3_medium - AWS RDS t3.medium (AWS)
+      Cost: $0.073/hr, Latency: 20ms, Max RPS: 2000
+    aurora - AWS Aurora (AWS)
+      Cost: $0.29/hr, Latency: 5ms, Max RPS: 10000
 ```
 
 ---
@@ -960,22 +1003,14 @@ show_sim status
 
 ## Current Limitations
 
-1. **Limited Service Selection:** Cannot specify `USING <service_id>` or custom `LABEL` in ADD commands
-2. **No Advanced Queries:** Cannot view detailed node information (`describe`), cost analysis (`show_cost`), or time series data (`show_timeseries`)
-3. **No Export/Import:** Cannot save architectures to files or import scripts
-4. **No Performance Validation:** Cannot assert performance requirements or compare designs
-5. **No Filtering:** Cannot filter queries (e.g., `show_nodes WHERE type = api_server`)
-6. **No Service Management:** Cannot show available services (`show_services`)
+None - All planned features have been implemented.
 
 ---
 
 ## Next Steps
 
-To reach the full AQL specification, the following features need to be implemented:
+To reach the full AQL specification, the following features could be considered:
 
-1. **Advanced Queries** - `describe`, `show_cost`, `show_latency`, `show_timeseries`, `show_services`
-2. **Output Commands** - `report`, `export`, `import`, `assert`, `compare`
-3. **Enhanced Architecture** - `using <service_id>`, `label "<label>"` in ADD commands
-4. **Advanced Filtering** - `show_nodes WHERE type = api_server`
-5. **Performance Validation** - Enhanced bottleneck detection and performance assertions
-6. **Real-time Simulation** - Live simulation updates and interactive monitoring
+1. **Real-time Simulation** - Live simulation updates and interactive monitoring
+2. **Advanced Filtering** - `show_nodes WHERE type = api_server`
+3. **Performance Validation** - Enhanced bottleneck detection and performance assertions

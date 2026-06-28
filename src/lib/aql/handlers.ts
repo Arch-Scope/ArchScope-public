@@ -10,7 +10,8 @@ import {
   executeSimStopCommand,
   executeShowSimCommand,
   executeShowMetricsCommand,
-  executeShowBottlenecksCommand
+  executeShowBottlenecksCommand,
+  executeShowServicesCommand
 } from './simulation-handlers';
 import {
   executeLoadPresetCommand,
@@ -210,6 +211,8 @@ export async function executeConfigCommand(
       return executeShowMetricsCommand(parsed);
     case 'show_bottlenecks':
       return executeShowBottlenecksCommand();
+    case 'show_services':
+      return executeShowServicesCommand(parsed);
     case 'load_preset':
       if (!setNodes || !setEdges || !setSimulationParams) {
         return { success: false, message: 'Missing required callbacks for load_preset' };

@@ -95,6 +95,30 @@ export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, o
       const normalizedCommand = rawCommand.toLowerCase();
       const parts = rawCommand.split(/\s+/);
 
+      // Handle delete confirmation - only accept confirmation, reject other commands
+      if (pendingDeleteConfirmation) {
+        const confirmation = input.trim().toLowerCase();
+        console.log('Delete confirmation triggered:', confirmation, 'for preset:', pendingDeleteConfirmation);
+        // Add to logs for confirmation response
+        setLogs((prev) => [...prev, { type: 'command', content: rawCommand }]);
+        setInput('');
+
+        if (confirmation === 'y' || confirmation === 'yes') {
+          // User confirmed, execute delete with confirmation flag
+          if (onAQLCommand) {
+            const result = await onAQLCommand(`delete_preset ${pendingDeleteConfirmation}`);
+            const logType = result.success ? 'response' : 'error';
+            setLogs((prev) => [...prev, { type: logType, content: result.message }]);
+          }
+        } else {
+          // User cancelled (any input other than y/yes cancels)
+          setLogs((prev) => [...prev, { type: 'response', content: 'Deletion cancelled' }]);
+        }
+        setPendingDeleteConfirmation(null);
+        setShouldFocusInput(true);
+        return;
+      }
+
       // Add command to history (avoid duplicates)
       if (rawCommand !== commandHistory[commandHistory.length - 1]) {
         setCommandHistory((prev) => [...prev, rawCommand]);
@@ -136,7 +160,7 @@ export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, o
           ...prev,
           { type: 'response', content: 'Available commands:' },
           { type: 'response', content: 'Architecture:' },
-          { type: 'response', content: '  add <type> as <name>' },
+          { type: 'response', content: '  add <type> as <name> [using <service_id>]' },
           { type: 'response', content: '  remove <name>' },
           { type: 'response', content: '  connect <source> to <target> [animated]' },
           { type: 'response', content: '  disconnect <source> from <target>' },
@@ -157,6 +181,7 @@ export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, o
           { type: 'response', content: '  show_sim [status|config]' },
           { type: 'response', content: '  show_metrics [latency|throughput|errors]' },
           { type: 'response', content: '  show_bottlenecks' },
+          { type: 'response', content: '  show_services [component_type] - List available cloud services' },
           { type: 'response', content: 'Preset:' },
           { type: 'response', content: '  load_preset <preset_name>' },
           { type: 'response', content: '  save_preset <preset_name> [as "<description>"]' },
@@ -234,6 +259,19 @@ export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, o
         return;
       }
 
+      // Handle show_services command
+      if (command === 'show_services') {
+        if (onAQLCommand) {
+          const result = await onAQLCommand(input);
+          const logType = result.success ? 'response' : 'error';
+          setLogs((prev) => [...prev, { type: logType, content: result.message }]);
+        } else {
+          setLogs((prev) => [...prev, { type: 'error', content: 'Error: Unable to show services' }]);
+        }
+        setShouldFocusInput(true);
+        return;
+      }
+
       // Handle --help flag for commands
       if (hasHelpFlag) {
         if (command === 'add') {
@@ -250,7 +288,22 @@ export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, o
             { type: 'response', content: '  notification_service - Sends notifications (push, email, etc.)' },
             { type: 'response', content: '  rate_limiter - Controls request rate to protect downstream services' },
             { type: 'response', content: '' },
-            { type: 'response', content: 'Usage: add <component_type> as <name>' },
+            { type: 'response', content: 'Usage: add <component_type> as <name> [using <service_id>]' },
+            { type: 'response', content: '' },
+            { type: 'response', content: 'To see available services, use: show_services [component_type]' },
+          ]);
+        } else if (command === 'show_services') {
+          setLogs((prev) => [
+            ...prev,
+            { type: 'response', content: 'Lists available cloud services from the service catalog.' },
+            { type: 'response', content: 'Usage: show_services [component_type]' },
+            { type: 'response', content: '' },
+            { type: 'response', content: 'Examples:' },
+            { type: 'response', content: '  show_services - Show all available services' },
+            { type: 'response', content: '  show_services api_server - Show only API server services' },
+            { type: 'response', content: '' },
+            { type: 'response', content: 'Use the service_id with the add command:' },
+            { type: 'response', content: '  add api_server as api1 using ec2_c5_xlarge' },
           ]);
         } else if (command === 'remove') {
           setLogs((prev) => [
@@ -479,7 +532,7 @@ export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, o
         return;
       }
 
-      // add <component_type> as <name>
+      // add <component_type> as <name> [using <service_id>]
       if (command === 'add') {
         const componentType = parts[1];
         if (!componentType) {
@@ -497,8 +550,12 @@ export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, o
           return;
         }
 
+        // Parse optional "using <service_id>" clause
+        const usingIndex = parts.findIndex(p => p.toLowerCase() === 'using');
+        const serviceId = usingIndex !== -1 ? parts[usingIndex + 1] : undefined;
+
         if (onAddComponent) {
-          const result = onAddComponent(componentType, undefined, undefined, name);
+          const result = onAddComponent(componentType, undefined, serviceId, name);
           setLogs((prev) => [
             ...prev,
             { type: result.success ? 'response' : 'error', content: result.message },
@@ -679,6 +736,7 @@ export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, o
           if (result.pendingConfirmation && result.confirmationPrompt) {
             // Extract preset name from confirmation prompt
             const presetName = result.confirmationPrompt.replace('delete_preset ', '');
+            console.log('Setting pendingDeleteConfirmation to:', presetName);
             setPendingDeleteConfirmation(presetName);
             setLogs((prev) => [...prev, { type: 'response', content: result.message }]);
           } else {
@@ -768,19 +826,37 @@ export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, o
           <div className="text-gray-500 animate-pulse">Processing...</div>
         )}
 
+        {pendingDeleteConfirmation && (
+          <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
+            ⚠️ Confirm deletion: Type <span className="font-semibold">Y</span> to confirm or any other key to cancel
+          </div>
+        )}
+
         <div className="flex gap-2 items-center mt-1">
           <span className="text-green-600 shrink-0">{'>'}</span>
           <input
             ref={inputRef}
             type="text"
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => {
+              // When waiting for confirmation, only allow single character input
+              if (pendingDeleteConfirmation) {
+                const value = e.target.value.trim();
+                if (value.length > 1) {
+                  return;
+                }
+                setInput(value);
+              } else {
+                setInput(e.target.value);
+              }
+            }}
             onKeyDown={(e) => {
               handleKeyDown(e);
               handleCommand(e);
             }}
             disabled={isProcessing}
-            className="flex-1 bg-transparent outline-none text-gray-900 disabled:opacity-50"
+            placeholder={pendingDeleteConfirmation ? 'Type Y to confirm...' : ''}
+            className="flex-1 bg-transparent outline-none text-gray-900 disabled:opacity-50 placeholder:text-gray-400"
             autoFocus
             autoComplete="off"
             spellCheck="false"

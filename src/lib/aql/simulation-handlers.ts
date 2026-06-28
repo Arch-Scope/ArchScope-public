@@ -499,31 +499,68 @@ export function executeShowBottlenecksCommand(): CommandResult {
 
   const bottlenecks = currentState.currentResults.bottlenecks;
   
-  if (!bottlenecks || bottlenecks.length === 0) {
-    return { success: true, message: 'No bottlenecks detected in the simulation.' };
+  if (bottlenecks.length === 0) {
+    return { success: true, message: 'No bottlenecks detected.' };
   }
 
-  const bottleneckLines = ['Performance Bottlenecks:'];
-  bottlenecks.forEach((bottleneck: any, index) => {
-    // Handle different bottleneck object structures (UI vs AQL format)
-    const nodeLabel = bottleneck.nodeLabel || bottleneck.nodeId || `Node ${index + 1}`;
-    const severity = bottleneck.severity || 'medium';
-    const description = bottleneck.description || (bottleneck as any).reason || 'Performance issue detected';
-    const metric = bottleneck.metric || 'utilization';
-    const value = bottleneck.value || (bottleneck as any).utilization || 'N/A';
-    const threshold = bottleneck.threshold || 'N/A';
-    
-    bottleneckLines.push(
-      `  ${index + 1}. ${nodeLabel} (${severity.toString().toUpperCase()})`,
-      `     ${description}`,
-      `     ${metric}: ${value} (threshold: ${threshold})`
-    );
+  const lines = ['Performance Bottlenecks:'];
+  bottlenecks.forEach((bottleneck, index) => {
+    lines.push(`  ${index + 1}. ${bottleneck.nodeLabel} (${bottleneck.severity.toUpperCase()})`);
+    lines.push(`     ${bottleneck.description}`);
   });
 
   return {
     success: true,
-    message: bottleneckLines.join('\n'),
+    message: lines.join('\n'),
     data: bottlenecks
+  };
+}
+
+/**
+ * Execute a show_services command to display available cloud services
+ */
+export function executeShowServicesCommand(parsed: ParsedCommand): CommandResult {
+  const { SERVICE_CATALOG } = require('@/lib/services/services-catalog');
+  const queryType = parsed.queryType || 'all';
+  
+  let services = SERVICE_CATALOG;
+  
+  // Filter by component type if specified
+  if (queryType !== 'all') {
+    services = services.filter((s: any) => s.componentType === queryType);
+    
+    if (services.length === 0) {
+      return { 
+        success: false, 
+        message: `No services found for component type: ${queryType}` 
+      };
+    }
+  }
+  
+  const lines = [`Available Services${queryType !== 'all' ? ` for ${queryType}` : ''}:`];
+  
+  // Group by component type
+  const grouped = services.reduce((acc: any, service: any) => {
+    const type = service.componentType;
+    if (!acc[type]) {
+      acc[type] = [];
+    }
+    acc[type].push(service);
+    return acc;
+  }, {});
+  
+  for (const [componentType, typeServices] of Object.entries(grouped)) {
+    lines.push(`  ${componentType}:`);
+    (typeServices as any[]).forEach((service) => {
+      lines.push(`    ${service.id} - ${service.name} (${service.provider})`);
+      lines.push(`      Cost: $${service.baseCostPerHour}/hr, Latency: ${service.baseLatencyMs}ms, Max RPS: ${service.maxRps}`);
+    });
+  }
+  
+  return {
+    success: true,
+    message: lines.join('\n'),
+    data: services
   };
 }
 
