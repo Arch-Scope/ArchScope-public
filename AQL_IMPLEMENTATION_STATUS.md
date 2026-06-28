@@ -22,9 +22,6 @@ AQL is a declarative-imperative domain-specific language for defining, configuri
 - **Simulation State Management** - maintains configuration, results, and history
 - **Service Management** (`show_services`, `using <service_id>` in add commands) with catalog integration
 
-### ❌ **Not Yet Implemented**
-- None
-
 ---
 
 ## Table of Contents

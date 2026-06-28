@@ -128,6 +128,25 @@ export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, o
       setInput('');
       setLogs((prev) => [...prev, { type: 'command', content: rawCommand }]);
 
+      // Handle delete confirmation
+      if (pendingDeleteConfirmation) {
+        const confirmation = input.trim().toLowerCase();
+        if (confirmation === 'y' || confirmation === 'yes') {
+          // User confirmed, execute delete with confirmation flag
+          if (onAQLCommand) {
+            const result = await onAQLCommand(`delete_preset ${pendingDeleteConfirmation}`);
+            const logType = result.success ? 'response' : 'error';
+            setLogs((prev) => [...prev, { type: logType, content: result.message }]);
+          }
+        } else {
+          // User cancelled
+          setLogs((prev) => [...prev, { type: 'response', content: 'Deletion cancelled' }]);
+        }
+        setPendingDeleteConfirmation(null);
+        setShouldFocusInput(true);
+        return;
+      }
+
       // Handle clear command locally
       if (normalizedCommand === 'clear') {
         setLogs([]);
