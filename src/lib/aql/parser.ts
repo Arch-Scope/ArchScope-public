@@ -1,11 +1,7 @@
 import { ComponentConfig, RateLimitAlgorithm } from '@/types';
 
 export interface ParsedCommand {
-<<<<<<< HEAD
   type: 'set' | 'config' | 'reset_config' | 'sim_set' | 'sim_config' | 'sim_run' | 'sim_stop' | 'sim_reset' | 'show_sim' | 'show_metrics' | 'show_bottlenecks' | 'show_services' | 'load_preset' | 'save_preset' | 'delete_preset' | 'list_preset' | 'unknown';
-=======
-  type: 'set' | 'config' | 'reset_config' | 'sim_set' | 'sim_config' | 'sim_run' | 'sim_stop' | 'sim_reset' | 'show_sim' | 'show_metrics' | 'show_bottlenecks' | 'load_preset' | 'save_preset' | 'delete_preset' | 'list_preset' | 'unknown';
->>>>>>> e9f8e3b66fc2e884fcc3d0457cf3a18a1718daa7
   label?: string;
   property?: string;
   value?: string | number | boolean;
