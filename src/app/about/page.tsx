@@ -12,8 +12,10 @@ import {
   Brain,
   Rocket,
   Code2,
-  Mail
+  Mail,
+  Users
 } from 'lucide-react';
+import { ContributorsScroll } from '@/components/common/contributors-scroll';
 
 export default function AboutPage() {
   const router = useRouter();
@@ -231,7 +233,7 @@ export default function AboutPage() {
             <div className="flex items-center gap-3">
               <Code2 className="w-6 h-6 text-orange-600" />
               <CardTitle>
-                Open Source & Contributors
+                Open source
               </CardTitle>
             </div>
           </CardHeader>
@@ -252,6 +254,14 @@ export default function AboutPage() {
                   View on GitHub
                 </Button>
               </Link>
+            </div>
+
+            <div className="pt-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Users className="w-4 h-4 text-gray-500" />
+                <span className="text-sm font-semibold text-gray-900">Contributors</span>
+              </div>
+              <ContributorsScroll />
             </div>
           </CardContent>
         </Card>
