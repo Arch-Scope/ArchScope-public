@@ -256,12 +256,14 @@ export default function AboutPage() {
               </Link>
             </div>
 
-            <div className="pt-4">
+            <div className="pt-4 flex flex-col items-center text-center">
               <div className="flex items-center gap-2 mb-3">
                 <Users className="w-4 h-4 text-gray-500" />
                 <span className="text-sm font-semibold text-gray-900">Contributors</span>
               </div>
-              <ContributorsScroll />
+              <div className="w-full sm:w-2/5 mx-auto">
+                <ContributorsScroll />
+              </div>
             </div>
           </CardContent>
         </Card>

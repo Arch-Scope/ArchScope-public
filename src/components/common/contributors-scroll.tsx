@@ -15,6 +15,8 @@ const SCROLL_STEP = 160; // px moved per arrow click
 export function ContributorsScroll() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [thumb, setThumb] = useState({ widthPct: 100, leftPct: 0 });
+  const [atStart, setAtStart] = useState(true);
+  const [atEnd, setAtEnd] = useState(false);
   const [contributors, setContributors] = useState<Contributor[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -27,14 +29,20 @@ export function ContributorsScroll() {
   }, []);
 
   const updateThumb = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const { scrollWidth, clientWidth, scrollLeft } = el;
-    const widthPct = Math.min(100, (clientWidth / scrollWidth) * 100);
-    const maxScroll = scrollWidth - clientWidth;
-    const leftPct = maxScroll > 0 ? (scrollLeft / maxScroll) * (100 - widthPct) : 0;
-    setThumb({ widthPct, leftPct });
+  const el = scrollRef.current;
+  if (!el) return;
+  const { scrollWidth, clientWidth, scrollLeft } = el;
+  const widthPct = Math.min(100, (clientWidth / scrollWidth) * 100);
+  const maxScroll = scrollWidth - clientWidth;
+  const leftPct = maxScroll > 0 ? (scrollLeft / maxScroll) * (100 - widthPct) : 0;
+  setThumb({ widthPct, leftPct });
+  setAtStart(scrollLeft <= 1);
+  setAtEnd(scrollLeft >= maxScroll - 1);
   }, []);
+
+  useEffect(() => {
+  if (!loading) requestAnimationFrame(updateThumb);
+  }, [loading, updateThumb]);
 
   const scrollBy = (dir: 'left' | 'right') => {
     scrollRef.current?.scrollBy({ left: dir === 'left' ? -SCROLL_STEP : SCROLL_STEP, behavior: 'smooth' });
@@ -50,12 +58,18 @@ export function ContributorsScroll() {
     <div className="pt-2">
       <div className="flex items-center gap-2">
         <button
-          type="button"
-          aria-label="Scroll contributors left"
-          onClick={() => scrollBy('left')}
-          className="shrink-0 rounded-full border p-1.5 text-gray-500 hover:text-cyan-600 hover:border-cyan-600 transition-colors"
+            type="button"
+            aria-label="Scroll contributors left"
+            onClick={() => scrollBy('left')}
+            disabled={atStart}
+            className={cn(
+                'shrink-0 rounded-full border p-1.5 transition-colors',
+                atStart
+                    ? 'text-gray-300 border-gray-200 cursor-not-allowed'
+                    : 'text-gray-500 hover:text-cyan-600 hover:border-cyan-600'
+            )}
         >
-          <ChevronLeft className="w-4 h-4" />
+            <ChevronLeft className="w-4 h-4" />
         </button>
 
         <div
@@ -84,12 +98,18 @@ export function ContributorsScroll() {
         </div>
 
         <button
-          type="button"
-          aria-label="Scroll contributors right"
-          onClick={() => scrollBy('right')}
-          className="shrink-0 rounded-full border p-1.5 text-gray-500 hover:text-cyan-600 hover:border-cyan-600 transition-colors"
+            type="button"
+            aria-label="Scroll contributors right"
+            onClick={() => scrollBy('right')}
+            disabled={atEnd}
+            className={cn(
+                'shrink-0 rounded-full border p-1.5 transition-colors',
+                atEnd
+                    ? 'text-gray-300 border-gray-200 cursor-not-allowed'
+                    : 'text-gray-500 hover:text-cyan-600 hover:border-cyan-600'
+            )}
         >
-          <ChevronRight className="w-4 h-4" />
+            <ChevronRight className="w-4 h-4" />
         </button>
       </div>
 
