@@ -619,6 +619,8 @@ export default function Simulator() {
             selectedDesignName={currentDesignName}
             onToggleTerminal={() => setIsTerminalOpen(!isTerminalOpen)}
             isTerminalOpen={isTerminalOpen}
+            simulationParams={simulationParams}
+            nodes={nodes}
           />
 
           {/* CANVAS */}

@@ -9,19 +9,23 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { exportToPng, exportToSvg } from '@/lib/utils/export-handlers';
+import { SimulationParams, SimulationNodeData } from '@/types';
+import { Node } from '@xyflow/react';
 
 interface ExportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  projectName?: string | null;
+  simulationParams?: SimulationParams | null;
+  nodes?: Node<SimulationNodeData>[] | null;
 }
 
-export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
+export function ExportDialog({ open, onOpenChange, projectName, simulationParams, nodes }: ExportDialogProps) {
   const [isExporting, setIsExporting] = useState<'png' | 'svg' | null>(null);
 
   const handleExport = async (format: 'png' | 'svg') => {
-    // The viewport element contains the actual diagram
     const viewportNode = document.querySelector('.react-flow__viewport') as HTMLElement;
-    
+
     if (!viewportNode) {
       console.error('Could not find React Flow viewport to export');
       return;
@@ -29,14 +33,15 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
 
     setIsExporting(format);
 
+    const options = { projectName, simulationParams, nodes };
+
     try {
       if (format === 'png') {
-        await exportToPng(viewportNode);
+        await exportToPng(viewportNode, options);
       } else {
-        await exportToSvg(viewportNode);
+        await exportToSvg(viewportNode, options);
       }
-      
-      // Close dialog after short delay to show success
+
       setTimeout(() => onOpenChange(false), 500);
     } catch (error) {
       console.error('Export failed:', error);
@@ -44,6 +49,9 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
       setIsExporting(null);
     }
   };
+
+  const displayName = projectName ?? 'archscope';
+  const date = new Date().toISOString().split('T')[0];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -54,13 +62,17 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
             Export Architecture Diagram
           </DialogTitle>
           <DialogDescription>
-            Download your current diagram as a high-resolution image or scalable vector graphic.
+            File will be saved as{' '}
+            <span className="font-medium text-slate-700">
+              {displayName.toLowerCase().replace(/\s+/g, '_')}_{date}
+            </span>
+            . Metadata overlay (simulation params &amp; components) will be added to PNG export.
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="flex flex-col gap-4 py-4">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             className="h-16 flex items-center justify-start gap-4 px-6 hover:bg-slate-50 transition-colors"
             onClick={() => handleExport('png')}
             disabled={isExporting !== null}
@@ -72,12 +84,14 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
             )}
             <div className="flex flex-col items-start">
               <span className="font-semibold">Export as PNG</span>
-              <span className="text-xs text-slate-500 font-normal">Best for sharing in chats and presentations</span>
+              <span className="text-xs text-slate-500 font-normal">
+                Includes metadata overlay with simulation info
+              </span>
             </div>
           </Button>
 
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             className="h-16 flex items-center justify-start gap-4 px-6 hover:bg-slate-50 transition-colors"
             onClick={() => handleExport('svg')}
             disabled={isExporting !== null}
@@ -89,7 +103,9 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
             )}
             <div className="flex flex-col items-start">
               <span className="font-semibold">Export as SVG</span>
-              <span className="text-xs text-slate-500 font-normal">Best for scaling without losing quality</span>
+              <span className="text-xs text-slate-500 font-normal">
+                Scalable vector — best for high-quality printing
+              </span>
             </div>
           </Button>
         </div>

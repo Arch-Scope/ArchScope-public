@@ -11,6 +11,8 @@ import { PRESETS } from '@/data';
 import { Button } from '@/components/ui/button';
 import { Terminal, Download } from 'lucide-react';
 import { ExportDialog } from './export-dialog';
+import { SimulationParams, SimulationNodeData } from '@/types';
+import { Node } from '@xyflow/react';
 
 interface Props {
   loadPreset: (id: string | null) => void;
@@ -19,9 +21,11 @@ interface Props {
   selectedDesignName: string | null;
   onToggleTerminal: () => void;
   isTerminalOpen: boolean;
+  simulationParams?: SimulationParams | null;
+  nodes?: Node<SimulationNodeData>[] | null;
 }
 
-export default function CanvasTopBar({ loadPreset, onSave, onReset, selectedDesignName, onToggleTerminal, isTerminalOpen }: Props) {
+export default function CanvasTopBar({ loadPreset, onSave, onReset, selectedDesignName, onToggleTerminal, isTerminalOpen, simulationParams, nodes }: Props) {
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
 
   return (
@@ -126,7 +130,13 @@ export default function CanvasTopBar({ loadPreset, onSave, onReset, selectedDesi
 
     </div>
 
-    <ExportDialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen} />
+    <ExportDialog
+      open={isExportDialogOpen}
+      onOpenChange={setIsExportDialogOpen}
+      projectName={selectedDesignName}
+      simulationParams={simulationParams}
+      nodes={nodes}
+    />
 
     </div>
   );
