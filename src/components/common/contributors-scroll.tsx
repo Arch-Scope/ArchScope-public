@@ -56,7 +56,7 @@ export function ContributorsScroll() {
 
   return (
     <div className="pt-2">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center justify-center gap-2">
         <button
             type="button"
             aria-label="Scroll contributors left"
@@ -75,7 +75,7 @@ export function ContributorsScroll() {
         <div
           ref={scrollRef}
           onScroll={updateThumb}
-          className="flex gap-3 overflow-x-auto scroll-smooth [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+          className="flex gap-3 overflow-x-auto scroll-smooth min-w-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
         >
           {contributors.map((c) => (
             <a
