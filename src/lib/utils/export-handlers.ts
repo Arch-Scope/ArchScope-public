@@ -51,7 +51,7 @@ function applyMetadataOverlay(
         lines.push(`RPS / User: ${simulationParams.requestsPerSecPerUser}`);
         lines.push(`Payload Size: ${simulationParams.payloadSizeMB} MB`);
         lines.push(`Load Profile: ${simulationParams.loadProfile}`);
-        if (simulationParams.loadProfile === 'spike') {
+        if (simulationParams.loadProfile === 'repeating_spike') {
           lines.push(`Spike Frequency: ${simulationParams.spikeFrequency}`);
           lines.push(`Spike Intensity: ${simulationParams.spikeIntensity}x`);
         }
