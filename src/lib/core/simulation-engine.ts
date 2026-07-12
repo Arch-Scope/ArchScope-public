@@ -8,6 +8,7 @@ import {
   LatencyBreakdownItem,
   TimeSeriesDataPoint,
   LoadProfile,
+  TimeComplexity,
 } from '@/types';
 import { getLoadMultiplier } from './load-profile';
 import { getServiceById } from '../services';
@@ -70,7 +71,44 @@ function findEntryNodes(graph: Map<string, GraphNode>): string[] {
   return entries;
 }
 
-function getEffectiveLatency(data: SimulationNodeData, rps: number): number {
+// Reference payload — the size at which complexity scaling has no effect (multiplier = 1).
+// Matches the smallest payload used across existing presets, so nothing changes
+// for existing designs until someone deliberately raises the payload size.
+const REFERENCE_PAYLOAD_MB = 0.001;
+
+// Same rationale as the load-multiplier cap below: without a ceiling, O(n^2) at a
+// large payload size would produce a latency number so large it makes the rest of
+// the simulation's metrics unreadable. This still lets complexity classes look
+// dramatically different from each other, just not literally unbounded.
+const MAX_COMPLEXITY_MULTIPLIER = 50;
+
+function getComplexityMultiplier(complexity: TimeComplexity | undefined, payloadSizeMB: number): number {
+  if (!complexity || complexity === 'O(1)') return 1;
+
+  const ratio = Math.max(payloadSizeMB, REFERENCE_PAYLOAD_MB) / REFERENCE_PAYLOAD_MB;
+
+  let multiplier: number;
+  switch (complexity) {
+    case 'O(log n)':
+      multiplier = Math.log2(ratio + 1);
+      break;
+    case 'O(n)':
+      multiplier = ratio;
+      break;
+    case 'O(n log n)':
+      multiplier = ratio * Math.log2(ratio + 1);
+      break;
+    case 'O(n^2)':
+      multiplier = ratio ** 2;
+      break;
+    default:
+      multiplier = 1;
+  }
+
+  return Math.min(multiplier, MAX_COMPLEXITY_MULTIPLIER);
+}
+
+function getEffectiveLatency(data: SimulationNodeData, rps: number, payloadSizeMB: number): number {
   // Idle node: not processing any requests, so latency is 0
   if (rps === 0) return 0;
 
@@ -79,11 +117,12 @@ function getEffectiveLatency(data: SimulationNodeData, rps: number): number {
 
   const baseLatency = data.config.customLatencyMs ?? service.baseLatencyMs;
   const maxRps = data.config.customMaxRps ?? service.maxRps;
+  const complexityMultiplier = getComplexityMultiplier(data.config.timeComplexity, payloadSizeMB);
 
   if (data.componentType === 'cache' && data.config.cacheHitRate !== undefined) {
     // Cache node only contributes its own lookup latency. On a miss, the downstream
     // DB node (already in the graph) adds its own latency via path traversal.
-    return baseLatency;
+    return baseLatency * complexityMultiplier;
   }
 
   // Latency increases under load (queuing theory approximation)
@@ -91,7 +130,7 @@ function getEffectiveLatency(data: SimulationNodeData, rps: number): number {
   // M/M/1 queue: avgWait = serviceTime / (1 - utilization)
   const loadMultiplier = 1 / (1 - utilization);
 
-  return baseLatency * Math.min(loadMultiplier, 10);
+  return baseLatency * complexityMultiplier * Math.min(loadMultiplier, 10);
 }
 
 function getEffectiveCost(data: SimulationNodeData, rps: number): number {
@@ -344,7 +383,7 @@ export function prepareSimulation(
     // For rate limiters, utilization is based on the node's processing capacity (maxRps),
     // NOT the rate limit policy. Rate limiting (allow/reject) is handled separately in simulateTick.
     const utilization = Math.min((nodeRps / maxRpsForNode) * 100, 100);
-    const avgLatency = getEffectiveLatency(data, nodeRps);
+    const avgLatency = getEffectiveLatency(data, nodeRps, params.payloadSizeMB);
     const p99Latency = avgLatency * 2.5;
     const costPerHour = getEffectiveCost(data, nodeRps);
     const errorRate = utilization > 95 ? (utilization - 95) * 4 : 0;
@@ -422,7 +461,7 @@ export function prepareSimulation(
     if (queueNode) {
       const queueService = getServiceById(queueNode.data.config.serviceId);
       const queueMaxRps = queueNode.data.config.customMaxRps ?? queueService?.maxRps ?? 30000;
-      const queueLatency = getEffectiveLatency(queueNode.data, queueInboundRps);
+      const queueLatency = getEffectiveLatency(queueNode.data, queueInboundRps, params.payloadSizeMB);
       const queueUtil = Math.min((queueInboundRps / queueMaxRps) * 100, 100);
       nodeMetrics[queueNodeId] = {
         avgLatencyMs: Math.round(queueLatency * 100) / 100,
@@ -443,7 +482,7 @@ export function prepareSimulation(
       if (!workerNode) continue;
       const workerService = getServiceById(workerNode.data.config.serviceId);
       const workerMaxRps = workerNode.data.config.customMaxRps ?? workerService?.maxRps ?? 500;
-      const workerLatency = getEffectiveLatency(workerNode.data, rpsPerWorker);
+      const workerLatency = getEffectiveLatency(workerNode.data, rpsPerWorker, params.payloadSizeMB);
       const workerUtil = Math.min((rpsPerWorker / workerMaxRps) * 100, 100);
       nodeMetrics[wId] = {
         avgLatencyMs: Math.round(workerLatency * 100) / 100,

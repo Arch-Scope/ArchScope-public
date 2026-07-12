@@ -15,6 +15,13 @@ export type RateLimitAlgorithm =
   | 'sliding_window'
   | 'leaky_bucket';
 
+export type TimeComplexity =
+  | 'O(1)'
+  | 'O(log n)'
+  | 'O(n)'
+  | 'O(n log n)'
+  | 'O(n^2)';
+
 export interface AwsServiceOption {
   id: string;
   name: string;
@@ -31,6 +38,7 @@ export interface AwsServiceOption {
 
 export interface ComponentConfig {
   serviceId: string; // which AwsServiceOption is selected
+  timeComplexity?: TimeComplexity; // how latency scales with payload size; omitted = O(1), no scaling
   customLatencyMs?: number;
   customMaxRps?: number;
   customCostPerHour?: number;
