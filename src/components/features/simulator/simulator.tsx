@@ -395,6 +395,30 @@ export default function Simulator() {
       };
     }
 
+    // Handle canvas commands
+if (command.trim() === 'zoom_in') {
+  reactFlowRef.current?.zoomIn();
+  return {
+    success: true,
+    message: 'Zoomed in',
+  };
+}
+
+if (command.trim() === 'zoom_out') {
+  reactFlowRef.current?.zoomOut();
+  return {
+    success: true,
+    message: 'Zoomed out',
+  };
+}
+
+if (command.trim() === 'fit_view') {
+  reactFlowRef.current?.fitView({ padding: 0.2 });
+  return {
+    success: true,
+    message: 'Canvas fitted to view',
+  };
+}
     // Get token from localStorage
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') || undefined : undefined;
 
