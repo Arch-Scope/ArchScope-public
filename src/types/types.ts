@@ -1,31 +1,35 @@
 export type ComponentType =
-  | 'client'
-  | 'load_balancer'
-  | 'api_server'
-  | 'cache'
-  | 'database'
-  | 'message_queue'
-  | 'worker'
-  | 'notification_service'
-  | 'rate_limiter';
+  | "client"
+  | "load_balancer"
+  | "api_server"
+  | "cache"
+  | "database"
+  | "message_queue"
+  | "worker"
+  | "notification_service"
+  | "rate_limiter";
 
 export type RateLimitAlgorithm =
-  | 'token_bucket'
-  | 'fixed_window'
-  | 'sliding_window'
-  | 'leaky_bucket';
+  | "token_bucket"
+  | "fixed_window"
+  | "sliding_window"
+  | "leaky_bucket";
+
+// This tells the app which "shape" of growth a component's latency follows
+// as the payload (request/response size) gets bigger.
+// Example: O(n^2) means if payload doubles, latency roughly quadruples.
 
 export type TimeComplexity =
-  | 'O(1)'
-  | 'O(log n)'
-  | 'O(n)'
-  | 'O(n log n)'
-  | 'O(n^2)';
+  | "O(1)" // constant time — latency does NOT change with payload size
+  | "O(log n)" // logarithmic — grows very slowly as payload grows
+  | "O(n)" // linear — grows at the same rate as payload
+  | "O(n log n)" // linearithmic — grows a bit faster than linear
+  | "O(n^2)"; // quadratic — grows much faster (doubling payload = 4x latency)
 
 export interface AwsServiceOption {
   id: string;
   name: string;
-  provider: 'AWS' | 'GCP' | 'Azure' | 'Generic';
+  provider: "AWS" | "GCP" | "Azure" | "Generic";
   componentType: ComponentType;
   baseCostPerHour: number; // USD per hour
   baseLatencyMs: number; // base latency in ms
@@ -38,6 +42,8 @@ export interface AwsServiceOption {
 
 export interface ComponentConfig {
   serviceId: string; // which AwsServiceOption is selected
+  // Optional on purpose. If a component doesn't have this set (older/existing
+  // designs), we treat it as O(1) so nothing changes for them automatically.
   timeComplexity?: TimeComplexity; // how latency scales with payload size; omitted = O(1), no scaling
   customLatencyMs?: number;
   customMaxRps?: number;
@@ -78,7 +84,7 @@ export interface NodeMetrics {
   errorRate?: number;
 }
 
-export type LoadProfile = 'constant' | 'sine' | 'repeating_spike';
+export type LoadProfile = "constant" | "sine" | "repeating_spike";
 
 export interface SimulationParams {
   concurrentUsers: number;
@@ -86,8 +92,8 @@ export interface SimulationParams {
   payloadSizeMB: number;
   simulationDurationSeconds: number;
   loadProfile: LoadProfile;
-  spikeFrequency: number;   // spikes per simulation (1–10)
-  spikeIntensity: number;   // peak multiplier (1.5–5x)
+  spikeFrequency: number; // spikes per simulation (1–10)
+  spikeIntensity: number; // peak multiplier (1.5–5x)
 }
 
 export interface TimeSeriesDataPoint {

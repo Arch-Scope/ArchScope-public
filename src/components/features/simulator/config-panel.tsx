@@ -59,6 +59,8 @@ export default function ConfigPanel({
     });
   };
 
+  // Handles the user picking a new value from the Time Complexity dropdown.
+  // Same pattern as handleServiceChange right above it.
   const handleTimeComplexityChange = (value: string) => {
     onUpdate(node.id, {
       config: { ...data.config, timeComplexity: value as TimeComplexity },
@@ -141,7 +143,9 @@ export default function ConfigPanel({
           </p>
         )}
       </div>
-
+      {/* NEW: lets the user tell the simulator how this component's latency
+    should scale as payload size grows. Sits right after the Service
+    dropdown since they're closely related settings. */}
       <div className="space-y-1.5">
         <Label className="text-xs">Time Complexity</Label>
         <Select
