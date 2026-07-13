@@ -37,7 +37,7 @@ function applyMetadataOverlay(
 
       // --- Build metadata lines ---
       const lines: string[] = [];
-
+      // Trigger preview deployment
       if (projectName) {
         lines.push(`Project: ${projectName}`);
         lines.push(`Exported: ${new Date().toLocaleString()}`);
