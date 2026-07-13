@@ -287,6 +287,69 @@ export function useSimulatorState() {
     }
   }, [selectedNodes, selectedNode, copy, saveToHistory]);
 
+  const duplicate = useCallback(() => {
+    let nodesToDuplicate: Node<SimulationNodeData>[] = [];
+    let edgesToDuplicate: Edge[] = [];
+
+    if (selectedNodes.length > 0) {
+      const selectedNodeIds = new Set(selectedNodes);
+      nodesToDuplicate = nodes.filter((node) => selectedNodeIds.has(node.id));
+      edgesToDuplicate = edges.filter((edge) =>
+        selectedNodeIds.has(edge.source) && selectedNodeIds.has(edge.target)
+      );
+    } else if (selectedNode) {
+      nodesToDuplicate = [selectedNode];
+    }
+
+    if (nodesToDuplicate.length === 0) return;
+
+    const idMap: Record<string, string> = {};
+    const offsetX = 100;
+    const offsetY = 50;
+
+    const newNodes = nodesToDuplicate.map((node) => {
+      const newId = `node_${++nodeIdCounter}_${Date.now()}`;
+      idMap[node.id] = newId;
+
+      return {
+        ...node,
+        id: newId,
+        selected: true,
+        position: {
+          x: node.position.x + offsetX,
+          y: node.position.y + offsetY,
+        },
+      };
+    });
+
+    const newEdges = edgesToDuplicate.map((edge) => ({
+      ...edge,
+      id: `edge_${Date.now()}_${Math.random()}`,
+      source: idMap[edge.source] || edge.source,
+      target: idMap[edge.target] || edge.target,
+      style: { stroke: '#94a3b8', strokeWidth: 2 },
+    }));
+
+    saveToHistory();
+    setNodes((prev) => {
+      const unselectedPrev = prev.map((n) => ({
+        ...n,
+        selected: false,
+      }));
+      return [...unselectedPrev, ...newNodes];
+    });
+    setEdges((prev) => [...prev, ...newEdges]);
+
+    const newIds = newNodes.map((n) => n.id);
+    if (newIds.length === 1) {
+      setSelectedNode(newNodes[0]);
+      setSelectedNodes([]);
+    } else {
+      setSelectedNode(null);
+      setSelectedNodes(newIds);
+    }
+  }, [selectedNodes, selectedNode, nodes, edges, saveToHistory, setNodes, setEdges, setSelectedNode, setSelectedNodes]);
+
   return {
     nodes,
     edges,
@@ -314,6 +377,7 @@ export function useSimulatorState() {
     copy,
     paste,
     cut,
+    duplicate,
     saveToHistory,
   };
 }

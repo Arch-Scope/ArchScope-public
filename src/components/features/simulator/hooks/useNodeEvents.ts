@@ -12,6 +12,7 @@ interface UseNodeEventsProps {
   reactFlowRef: React.MutableRefObject<ReactFlowInstance<Node<SimulationNodeData>, Edge> | null>;
   setEdges: any;
   saveToHistory: () => void;
+  setContextMenu: (menu: { id: string; x: number; y: number } | null) => void;
 }
 
 export function useNodeEvents({
@@ -24,6 +25,7 @@ export function useNodeEvents({
   reactFlowRef,
   setEdges,
   saveToHistory,
+  setContextMenu,
 }: UseNodeEventsProps) {
   const onNodeClick = useCallback(
     (event: React.MouseEvent, node: Node) => {
@@ -52,7 +54,8 @@ export function useNodeEvents({
     setSelectedNode(null);
     setSelectedEdge(null);
     setSelectedNodes([]);
-  }, [setSelectedNode, setSelectedEdge, setSelectedNodes]);
+    setContextMenu(null);
+  }, [setSelectedNode, setSelectedEdge, setSelectedNodes, setContextMenu]);
 
   const onEdgeClick = useCallback(
     (_: React.MouseEvent, edge: Edge) => {
@@ -106,6 +109,18 @@ export function useNodeEvents({
     [addComponent]
   );
 
+  const onNodeContextMenu = useCallback(
+    (event: React.MouseEvent, node: Node) => {
+      event.preventDefault();
+      setContextMenu({
+        id: node.id,
+        x: event.clientX,
+        y: event.clientY,
+      });
+    },
+    [setContextMenu]
+  );
+
   return {
     onNodeClick,
     onPaneClick,
@@ -113,5 +128,6 @@ export function useNodeEvents({
     onConnect,
     onDragOver,
     onDrop,
+    onNodeContextMenu,
   };
 }

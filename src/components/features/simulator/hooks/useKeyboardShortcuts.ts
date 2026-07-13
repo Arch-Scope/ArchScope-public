@@ -14,6 +14,7 @@ interface UseKeyboardShortcutsProps {
   redo: () => void;
   copy: () => void;
   paste: () => void;
+  duplicate: () => void;
   setSelectedNode: (node: Node<SimulationNodeData> | null) => void;
   setSelectedNodes: React.Dispatch<React.SetStateAction<string[]>>;
   setSelectedEdge: (edge: Edge | null) => void;
@@ -31,6 +32,7 @@ export function useKeyboardShortcuts({
   redo,
   copy,
   paste,
+  duplicate,
   setSelectedNode,
   setSelectedNodes,
   setSelectedEdge,
@@ -155,6 +157,13 @@ export function useKeyboardShortcuts({
         return;
       }
 
+      // Ctrl+D or Cmd+D to duplicate
+      if (event.key === 'd' && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault();
+        duplicate();
+        return;
+      }
+
       // Ctrl+X or Cmd+X to cut
       if (event.key === 'x' && (event.ctrlKey || event.metaKey)) {
         event.preventDefault();
@@ -200,6 +209,7 @@ export function useKeyboardShortcuts({
     redo,
     copy,
     paste,
+    duplicate,
     setSelectedNode,
     setSelectedNodes,
     setSelectedEdge,

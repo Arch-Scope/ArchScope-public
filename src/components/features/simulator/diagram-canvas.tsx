@@ -31,6 +31,7 @@ interface DiagramCanvasProps {
   onPaneClick: (event: React.MouseEvent) => void;
   onDragOver: (event: React.DragEvent) => void;
   onDrop: (event: React.DragEvent) => void;
+  onNodeContextMenu?: (event: React.MouseEvent, node: Node<SimulationNodeData>) => void;
   reactFlowRef: React.MutableRefObject<ReactFlowInstance<Node<SimulationNodeData>, Edge> | null>;
   handleSelectionStart: (e: React.MouseEvent) => void;
   handleSelectionMove: (e: React.MouseEvent) => void;
@@ -53,6 +54,7 @@ export default function DiagramCanvas({
   onPaneClick,
   onDragOver,
   onDrop,
+  onNodeContextMenu,
   reactFlowRef,
   handleSelectionStart,
   handleSelectionMove,
@@ -87,6 +89,7 @@ export default function DiagramCanvas({
         onPaneClick={onPaneClick}
         onDragOver={onDragOver}
         onDrop={onDrop}
+        onNodeContextMenu={onNodeContextMenu}
         selectionKeyCode="Shift"
         multiSelectionKeyCode="Shift"
         onMouseDown={handleSelectionStart}
