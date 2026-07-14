@@ -146,6 +146,9 @@ export default function ConfigPanel({
       {/* NEW: lets the user tell the simulator how this component's latency
     should scale as payload size grows. Sits right after the Service
     dropdown since they're closely related settings. */}
+
+    {/*  Preview trigger: minor comment addition, no functional change */}
+    
       <div className="space-y-1.5">
         <Label className="text-xs">Time Complexity</Label>
         <Select
