@@ -395,7 +395,7 @@ export default function Simulator() {
       };
     }
 
-    // Handle canvas commands
+    // Handle canvas resize commands
 if (command.trim() === 'zoom_in') {
   reactFlowRef.current?.zoomIn();
   return {
