@@ -73,18 +73,21 @@ function applyMetadataOverlay(
       }
 
       // --- Overlay sizing ---
-      const padding = 16;
-      const lineHeight = 18;
-      const fontSize = 13;
-      const panelWidth = 260;
+      // We scale the size relative to a default canvas width of 1200px
+      const scale = Math.max(0.6, Math.min(2.5, canvas.width / 1200));
+      const padding = 16 * scale;
+      const lineHeight = 18 * scale;
+      const fontSize = Math.max(8, Math.round(13 * scale));
+      const panelWidth = Math.max(160, Math.round(260 * scale));
       const panelHeight = lines.length * lineHeight + padding * 2;
       const panelX = canvas.width - panelWidth - padding;
       const panelY = padding;
 
       // Background panel
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.82)'; // dark-slate with transparency
+      // Made it slightly more translucent (0.65 opacity) to allow overshadowed elements to be seen
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
       ctx.beginPath();
-      ctx.roundRect(panelX, panelY, panelWidth, panelHeight, 8);
+      ctx.roundRect(panelX, panelY, panelWidth, panelHeight, 8 * scale);
       ctx.fill();
 
       // Text rendering
