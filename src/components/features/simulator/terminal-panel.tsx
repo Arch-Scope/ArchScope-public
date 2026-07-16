@@ -182,6 +182,10 @@ export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, o
           { type: 'response', content: '  show_metrics [latency|throughput|errors]' },
           { type: 'response', content: '  show_bottlenecks' },
           { type: 'response', content: '  show_services [component_type] - List available cloud services' },
+          { type: 'response', content: 'Canvas:' },
+          { type: 'response', content: '  zoom_in - Zoom in on the canvas' },
+          { type: 'response', content: '  zoom_out - Zoom out on the canvas' },
+          { type: 'response', content: '  fit_view - Fit canvas to view' },
           { type: 'response', content: 'Preset:' },
           { type: 'response', content: '  load_preset <preset_name>' },
           { type: 'response', content: '  save_preset <preset_name> [as "<description>"]' },
@@ -707,6 +711,21 @@ export default function TerminalPanel({ onClose, onAddComponent, onRemoveNode, o
           ]);
         } else {
           setLogs((prev) => [...prev, { type: 'error', content: 'Error: Configuration commands not available' }]);
+        }
+        setShouldFocusInput(true);
+        return;
+      }
+
+      // Handle canvas zoom/view commands locally
+      if (command === 'zoom_in' || command === 'zoom_out' || command === 'fit_view') {
+        if (onAQLCommand) {
+          const result = await onAQLCommand(rawCommand);
+          setLogs((prev) => [
+            ...prev,
+            { type: result.success ? 'response' : 'error', content: result.message },
+          ]);
+        } else {
+          setLogs((prev) => [...prev, { type: 'error', content: 'Error: Canvas commands not available' }]);
         }
         setShouldFocusInput(true);
         return;
