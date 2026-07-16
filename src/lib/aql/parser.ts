@@ -1,7 +1,27 @@
 import { ComponentConfig, RateLimitAlgorithm } from '@/types';
 
 export interface ParsedCommand {
-  type: 'set' | 'config' | 'reset_config' | 'sim_set' | 'sim_config' | 'sim_run' | 'sim_stop' | 'sim_reset' | 'show_sim' | 'show_metrics' | 'show_bottlenecks' | 'show_services' | 'load_preset' | 'save_preset' | 'delete_preset' | 'list_preset' | 'unknown';
+  type:
+  | 'set'
+  | 'config'
+  | 'reset_config'
+  | 'sim_set'
+  | 'sim_config'
+  | 'sim_run'
+  | 'sim_stop'
+  | 'sim_reset'
+  | 'show_sim'
+  | 'show_metrics'
+  | 'show_bottlenecks'
+  | 'show_services'
+  | 'load_preset'
+  | 'save_preset'
+  | 'delete_preset'
+  | 'list_preset'
+  | 'zoom_in'
+  | 'zoom_out'
+  | 'fit_view'
+  | 'unknown';
   label?: string;
   property?: string;
   value?: string | number | boolean;
@@ -441,77 +461,60 @@ export function parseShowServicesCommand(command: string): ParsedCommand {
 }
 
 /**
- * Main parser function that routes to the appropriate parser
+ * Parse zoom_in command
+ * Syntax: zoom_in
  */
-export function parseAQLCommand(command: string): ParsedCommand {
+export function parseZoomInCommand(command: string): ParsedCommand {
   const parts = command.trim().split(/\s+/);
-  const cmd = parts[0].toLowerCase();
-  
-  if (cmd === 'set') {
-    return parseSetCommand(command);
+
+  if (parts.length > 1) {
+    return {
+      type: 'unknown',
+      error: 'Invalid zoom_in command. Usage: zoom_in',
+    };
   }
-  
-  if (cmd === 'config') {
-    return parseConfigCommand(command);
+
+  return {
+    type: 'zoom_in',
+  };
+}
+
+/**
+ * Parse zoom_out command
+ * Syntax: zoom_out
+ */
+export function parseZoomOutCommand(command: string): ParsedCommand {
+  const parts = command.trim().split(/\s+/);
+
+  if (parts.length > 1) {
+    return {
+      type: 'unknown',
+      error: 'Invalid zoom_out command. Usage: zoom_out',
+    };
   }
-  
-  if (cmd === 'reset' && parts[1]?.toLowerCase() === 'config') {
-    return parseResetConfigCommand(command);
+
+  return {
+    type: 'zoom_out',
+  };
+}
+
+/**
+ * Parse fit_view command
+ * Syntax: fit_view
+ */
+export function parseFitViewCommand(command: string): ParsedCommand {
+  const parts = command.trim().split(/\s+/);
+
+  if (parts.length > 1) {
+    return {
+      type: 'unknown',
+      error: 'Invalid fit_view command. Usage: fit_view',
+    };
   }
-  
-  if (cmd === 'sim_set') {
-    return parseSimSetCommand(command);
-  }
-  
-  if (cmd === 'sim_config') {
-    return parseSimConfigCommand(command);
-  }
-  
-  if (cmd === 'sim_run') {
-    return parseSimRunCommand(command);
-  }
-  
-  if (cmd === 'sim_stop') {
-    return parseSimStopCommand(command);
-  }
-  
-  if (cmd === 'sim_reset') {
-    return parseSimResetCommand(command);
-  }
-  
-  if (cmd === 'show_sim') {
-    return parseShowSimCommand(command);
-  }
-  
-  if (cmd === 'show_metrics') {
-    return parseShowMetricsCommand(command);
-  }
-  
-  if (cmd === 'show_bottlenecks') {
-    return parseShowBottlenecksCommand(command);
-  }
-  
-  if (cmd === 'load_preset') {
-    return parseLoadPresetCommand(command);
-  }
-  
-  if (cmd === 'save_preset') {
-    return parseSavePresetCommand(command);
-  }
-  
-  if (cmd === 'delete_preset') {
-    return parseDeletePresetCommand(command);
-  }
-  
-  if (cmd === 'list_preset') {
-    return parseListPresetCommand(command);
-  }
-  
-  if (cmd === 'show_services') {
-    return parseShowServicesCommand(command);
-  }
-  
-  return { type: 'unknown', error: `Unknown command: ${cmd}` };
+
+  return {
+    type: 'fit_view',
+  };
 }
 
 /**
@@ -650,4 +653,99 @@ export function convertValueForField(
     default:
       return value;
   }
+}
+/**
+ * Main AQL parser
+ * Routes a command to the appropriate parser
+ */
+export function parseAQLCommand(command: string): ParsedCommand {
+  const trimmed = command.trim();
+
+  if (!trimmed) {
+    return {
+      type: 'unknown',
+      error: 'Empty command',
+    };
+  }
+
+  if (trimmed.startsWith('set ')) {
+    return parseSetCommand(trimmed);
+  }
+
+  if (trimmed.startsWith('config ')) {
+    return parseConfigCommand(trimmed);
+  }
+
+  if (trimmed.startsWith('reset config ')) {
+    return parseResetConfigCommand(trimmed);
+  }
+
+  if (trimmed.startsWith('sim_set ')) {
+    return parseSimSetCommand(trimmed);
+  }
+
+  if (trimmed.startsWith('sim_config ')) {
+    return parseSimConfigCommand(trimmed);
+  }
+
+  if (trimmed.startsWith('sim_run')) {
+    return parseSimRunCommand(trimmed);
+  }
+
+  if (trimmed === 'sim_stop') {
+    return parseSimStopCommand(trimmed);
+  }
+
+  if (trimmed === 'sim_reset') {
+    return parseSimResetCommand(trimmed);
+  }
+
+  if (trimmed.startsWith('show_sim')) {
+    return parseShowSimCommand(trimmed);
+  }
+
+  if (trimmed.startsWith('show_metrics')) {
+    return parseShowMetricsCommand(trimmed);
+  }
+
+  if (trimmed === 'show_bottlenecks') {
+    return parseShowBottlenecksCommand(trimmed);
+  }
+
+  if (trimmed.startsWith('show_services')) {
+    return parseShowServicesCommand(trimmed);
+  }
+
+  if (trimmed.startsWith('load_preset')) {
+    return parseLoadPresetCommand(trimmed);
+  }
+
+  if (trimmed.startsWith('save_preset')) {
+    return parseSavePresetCommand(trimmed);
+  }
+
+  if (trimmed.startsWith('delete_preset')) {
+    return parseDeletePresetCommand(trimmed);
+  }
+
+  if (trimmed === 'list_preset') {
+    return parseListPresetCommand(trimmed);
+  }
+
+  if (trimmed === 'zoom_in') {
+    return parseZoomInCommand(trimmed);
+  }
+
+  if (trimmed === 'zoom_out') {
+    return parseZoomOutCommand(trimmed);
+  }
+
+  if (trimmed === 'fit_view') {
+    return parseFitViewCommand(trimmed);
+  }
+
+  return {
+    type: 'unknown',
+    error: `Unknown command: ${command}`,
+  };
 }
