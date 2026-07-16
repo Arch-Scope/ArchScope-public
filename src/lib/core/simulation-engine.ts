@@ -1,4 +1,4 @@
-import { Node, Edge } from '@xyflow/react';
+import { Node, Edge } from "@xyflow/react";
 import {
   SimulationNodeData,
   SimulationParams,
@@ -8,9 +8,10 @@ import {
   LatencyBreakdownItem,
   TimeSeriesDataPoint,
   LoadProfile,
-} from '@/types';
-import { getLoadMultiplier } from './load-profile';
-import { getServiceById } from '../services';
+  TimeComplexity,
+} from "@/types";
+import { getLoadMultiplier } from "./load-profile";
+import { getServiceById } from "../services";
 
 interface GraphNode {
   id: string;
@@ -21,7 +22,7 @@ interface GraphNode {
 
 function buildGraph(
   nodes: Node<SimulationNodeData>[],
-  edges: Edge[]
+  edges: Edge[],
 ): Map<string, GraphNode> {
   const graph = new Map<string, GraphNode>();
 
@@ -55,7 +56,7 @@ function findEntryNodes(graph: Map<string, GraphNode>): string[] {
   for (const [id, node] of graph) {
     // Only client-type nodes are entry points
     // A node with no parents but not a client is just a floating disconnected node
-    if (node.data.componentType === 'client') {
+    if (node.data.componentType === "client") {
       entries.push(id);
     }
   }
@@ -70,7 +71,73 @@ function findEntryNodes(graph: Map<string, GraphNode>): string[] {
   return entries;
 }
 
-function getEffectiveLatency(data: SimulationNodeData, rps: number): number {
+// This is the payload size (in MB) we treat as the "starting point" — at this
+// size, every complexity class behaves the same (multiplier = 1, no change).
+// It matches the smallest payload size used across all existing presets, so
+// old simulations keep giving the exact same results as before this feature
+// was added — nothing breaks for people who never touch this new setting.
+const REFERENCE_PAYLOAD_MB = 0.001;
+
+// Without a ceiling, an O(n^2) node with a huge payload could produce a
+// latency number in the thousands of milliseconds — technically "correct"
+// math, but useless to look at and makes every other metric on screen hard
+// to read. We cap it here, same idea as the existing 10x cap on load below.
+const MAX_COMPLEXITY_MULTIPLIER = 50;
+
+// Given a complexity setting and how big the payload is, work out how much
+// to multiply the base latency by.
+//
+// Example: if complexity is O(n^2) and the payload is twice the reference
+// size, ratio = 2, so multiplier = 2^2 = 4 → latency becomes 4x bigger.
+function getComplexityMultiplier(
+  complexity: TimeComplexity | undefined,
+  payloadSizeMB: number,
+): number {
+  // No complexity set, or explicitly O(1) → no extra scaling at all.
+  if (!complexity || complexity === "O(1)") return 1;
+
+  // How many times bigger is the current payload compared to our reference
+  // point? (Math.max guards against payload being 0 or missing, so we never
+  // divide into something weird.)
+  const ratio =
+    Math.max(payloadSizeMB, REFERENCE_PAYLOAD_MB) / REFERENCE_PAYLOAD_MB;
+
+  let multiplier: number;
+  switch (complexity) {
+    case "O(log n)":
+      // Grows very slowly — even a big payload only nudges latency up a bit.
+      multiplier = Math.log2(ratio + 1);
+      break;
+    case "O(n)":
+      // Grows in direct proportion to payload size.
+      multiplier = ratio;
+      break;
+    case "O(n log n)":
+      // A bit worse than linear — common for things like sorting.
+      multiplier = ratio * Math.log2(ratio + 1);
+      break;
+    case "O(n^2)":
+      // Grows with the SQUARE of the ratio — this is what makes
+      // "payload x2 → latency x4" true.
+      multiplier = ratio ** 2;
+      break;
+    default:
+      multiplier = 1;
+  }
+
+  // Never let the multiplier exceed our safety ceiling.
+  return Math.min(multiplier, MAX_COMPLEXITY_MULTIPLIER);
+}
+
+//  Works out how long a node takes to respond, combining:
+//   1) its base latency (from the selected AWS service)
+//   2) how much slower it gets from payload size + complexity (NEW)
+//   3) how much slower it gets from being under heavy request load (existing)
+function getEffectiveLatency(
+  data: SimulationNodeData,
+  rps: number,
+  payloadSizeMB: number,
+): number {
   // Idle node: not processing any requests, so latency is 0
   if (rps === 0) return 0;
 
@@ -79,11 +146,21 @@ function getEffectiveLatency(data: SimulationNodeData, rps: number): number {
 
   const baseLatency = data.config.customLatencyMs ?? service.baseLatencyMs;
   const maxRps = data.config.customMaxRps ?? service.maxRps;
+  // NEW: work out how much payload size + complexity should slow this node down.
+  const complexityMultiplier = getComplexityMultiplier(
+    data.config.timeComplexity,
+    payloadSizeMB,
+  );
 
-  if (data.componentType === 'cache' && data.config.cacheHitRate !== undefined) {
+  if (
+    data.componentType === "cache" &&
+    data.config.cacheHitRate !== undefined
+  ) {
     // Cache node only contributes its own lookup latency. On a miss, the downstream
     // DB node (already in the graph) adds its own latency via path traversal.
-    return baseLatency;
+    // Still apply complexity scaling here too, in case the cache lookup itself
+    // is configured as something other than O(1).
+    return baseLatency * complexityMultiplier;
   }
 
   // Latency increases under load (queuing theory approximation)
@@ -91,7 +168,8 @@ function getEffectiveLatency(data: SimulationNodeData, rps: number): number {
   // M/M/1 queue: avgWait = serviceTime / (1 - utilization)
   const loadMultiplier = 1 / (1 - utilization);
 
-  return baseLatency * Math.min(loadMultiplier, 10);
+  // Final latency = base time, slowed down by BOTH payload/complexity AND load.
+  return baseLatency * complexityMultiplier * Math.min(loadMultiplier, 10);
 }
 
 function getEffectiveCost(data: SimulationNodeData, rps: number): number {
@@ -105,27 +183,27 @@ function getEffectiveCost(data: SimulationNodeData, rps: number): number {
   let totalCost = baseCost;
 
   // Lambda/serverless: $0 at 0 RPS, scales purely with invocations
-  if (service.id === 'lambda' || service.id === 'lambda_worker') {
+  if (service.id === "lambda" || service.id === "lambda_worker") {
     if (rps === 0) return 0;
     const invocationsPerHour = rps * 3600;
     const computeSeconds = invocationsPerHour * (service.baseLatencyMs / 1000);
-    totalCost = computeSeconds * 0.0000166667 + (invocationsPerHour / 1000000) * 0.20;
+    totalCost =
+      computeSeconds * 0.0000166667 + (invocationsPerHour / 1000000) * 0.2;
   }
 
   // SQS: $0 at 0 RPS, scales with messages
-  if (service.id === 'sqs') {
+  if (service.id === "sqs") {
     if (rps === 0) return 0;
     const messagesPerHour = rps * 3600;
-    totalCost = (messagesPerHour / 1000000) * 0.40;
+    totalCost = (messagesPerHour / 1000000) * 0.4;
   }
 
-  
   return totalCost;
 }
 
 function traversePaths(
   graph: Map<string, GraphNode>,
-  startNodes: string[]
+  startNodes: string[],
 ): string[][] {
   const paths: string[][] = [];
 
@@ -156,7 +234,7 @@ function traversePaths(
 }
 
 // ── Load profile: re-exported from shared module ─────────────────────────────
-export { getLoadMultiplier } from './load-profile';
+export { getLoadMultiplier } from "./load-profile";
 
 // ── Rate limit state for one simulation run ──────────────────────────────────
 interface RLState {
@@ -167,14 +245,14 @@ interface RLState {
 }
 
 function checkRateLimitSim(
-  cfg: SimulationNodeData['config'],
+  cfg: SimulationNodeData["config"],
   state: RLState,
   nowSec: number,
 ): boolean {
-  const algo = cfg.rateLimitAlgorithm ?? 'token_bucket';
+  const algo = cfg.rateLimitAlgorithm ?? "token_bucket";
   const ttl = cfg.redisCounterTtlSeconds ?? 60;
 
-  if (algo === 'token_bucket' || algo === 'leaky_bucket') {
+  if (algo === "token_bucket" || algo === "leaky_bucket") {
     const bucketSize = cfg.rateLimitBucketSize ?? 100;
     const refillRate = cfg.rateLimitRefillRate ?? 10;
     if (nowSec - state.windowStartSec > ttl) {
@@ -185,11 +263,14 @@ function checkRateLimitSim(
     const elapsed = nowSec - state.lastRefillSec;
     state.tokens = Math.min(bucketSize, state.tokens + elapsed * refillRate);
     state.lastRefillSec = nowSec;
-    if (state.tokens >= 1) { state.tokens -= 1; return true; }
+    if (state.tokens >= 1) {
+      state.tokens -= 1;
+      return true;
+    }
     return false;
   }
 
-  if (algo === 'fixed_window') {
+  if (algo === "fixed_window") {
     const maxReq = cfg.rateLimitMaxRequests ?? 100;
     const windowSec = cfg.rateLimitWindowSeconds ?? 60;
     if (nowSec - state.windowStartSec > windowSec) {
@@ -200,7 +281,7 @@ function checkRateLimitSim(
     return state.requestCount <= maxReq;
   }
 
-  if (algo === 'sliding_window') {
+  if (algo === "sliding_window") {
     const maxReq = cfg.rateLimitMaxRequests ?? 100;
     const windowSec = cfg.rateLimitWindowSeconds ?? 60;
     const elapsed = nowSec - state.windowStartSec;
@@ -247,7 +328,7 @@ function distributeRps(
     const uniqueChildren = [...new Set(node.children)];
     if (uniqueChildren.length === 0) continue;
 
-    const isLB = node.data.componentType === 'load_balancer';
+    const isLB = node.data.componentType === "load_balancer";
     const rpsPerChild = isLB ? rps / uniqueChildren.length : rps;
 
     for (const childId of uniqueChildren) {
@@ -261,9 +342,10 @@ function distributeRps(
       // - If the child has NO LB parents, take the MAX of all contributions.
       //   This prevents double-counting when two parallel paths (e.g. API1
       //   and API2) both fan into the same downstream node (e.g. Cache).
-      const hasAnyLBParent = childNode?.parents.some(
-        (pid) => graph.get(pid)?.data.componentType === 'load_balancer'
-      ) ?? false;
+      const hasAnyLBParent =
+        childNode?.parents.some(
+          (pid) => graph.get(pid)?.data.componentType === "load_balancer",
+        ) ?? false;
 
       const prev = nodeRpsMap.get(childId) ?? 0;
       if (hasAnyLBParent) {
@@ -293,7 +375,7 @@ function distributeRps(
 interface QueueWorkerInfo {
   queueMaxMessages: number;
   workerCapacityRps: number; // total drain rate across ALL workers
-  workerLatencyMs: number;  // avg latency of a single worker
+  workerLatencyMs: number; // avg latency of a single worker
   workerCount: number;
   workerNodeIds: string[];
 }
@@ -309,7 +391,7 @@ export interface SimulationContext {
   overloadErrorFrac: number;
   // Per-user rate limit states — one bucket per simulated user
   rlStates: RLState[] | null;
-  rlNode: { config: SimulationNodeData['config'] } | null;
+  rlNode: { config: SimulationNodeData["config"] } | null;
   concurrentUsers: number;
   effectiveMaxRps: number;
   // Variable load
@@ -325,7 +407,7 @@ export interface SimulationContext {
 export function prepareSimulation(
   nodes: Node<SimulationNodeData>[],
   edges: Edge[],
-  params: SimulationParams
+  params: SimulationParams,
 ): SimulationContext {
   const graph = buildGraph(nodes, edges);
   const entryNodes = findEntryNodes(graph);
@@ -344,7 +426,8 @@ export function prepareSimulation(
     // For rate limiters, utilization is based on the node's processing capacity (maxRps),
     // NOT the rate limit policy. Rate limiting (allow/reject) is handled separately in simulateTick.
     const utilization = Math.min((nodeRps / maxRpsForNode) * 100, 100);
-    const avgLatency = getEffectiveLatency(data, nodeRps);
+    // NEW: pass payload size so this node's latency reflects its time complexity
+    const avgLatency = getEffectiveLatency(data, nodeRps, params.payloadSizeMB);
     const p99Latency = avgLatency * 2.5;
     const costPerHour = getEffectiveCost(data, nodeRps);
     const errorRate = utilization > 95 ? (utilization - 95) * 4 : 0;
@@ -358,19 +441,23 @@ export function prepareSimulation(
       isBottleneck: utilization > 80,
       errorRate: Math.round(errorRate * 100) / 100,
     };
-    if (data.componentType === 'cache') {
+    if (data.componentType === "cache") {
       const hitRate = data.config.cacheHitRate ?? 0.8;
       metrics.cacheHits = Math.round(nodeRps * hitRate);
       metrics.cacheMisses = Math.round(nodeRps * (1 - hitRate));
     }
-    if (data.componentType === 'message_queue') {
-      metrics.queueDepth = Math.round(nodeRps * ((data.config.queueProcessingTimeMs ?? 100) / 1000));
+    if (data.componentType === "message_queue") {
+      metrics.queueDepth = Math.round(
+        nodeRps * ((data.config.queueProcessingTimeMs ?? 100) / 1000),
+      );
     }
     nodeMetrics[nodeId] = metrics;
     totalCostPerHour += costPerHour;
   }
 
-  const rlNodeFull = [...graph.values()].find((n) => n.data.componentType === 'rate_limiter');
+  const rlNodeFull = [...graph.values()].find(
+    (n) => n.data.componentType === "rate_limiter",
+  );
 
   // ── Detect Queue → Worker(s) topology (works with or without upstream RL) ──
   // Must happen BEFORE traversePaths so worker metrics are correct for latency breakdown.
@@ -378,19 +465,26 @@ export function prepareSimulation(
   let queueNodeId: string | null = null;
   const workerNodeIdSet = new Set<string>();
   for (const [nodeId, node] of graph) {
-    if (node.data.componentType !== 'message_queue') continue;
+    if (node.data.componentType !== "message_queue") continue;
     const queueMaxMessages = node.data.config.queueMaxMessages ?? 10000;
     const processingTimeMs = node.data.config.queueProcessingTimeMs ?? 100;
-    const drainRatePerWorkerPerSec = Math.max(1, Math.floor(1000 / processingTimeMs));
+    const drainRatePerWorkerPerSec = Math.max(
+      1,
+      Math.floor(1000 / processingTimeMs),
+    );
     const workerNodeIds: string[] = [];
     let totalLatencyMs = 0;
     let totalCapacityRps = 0;
     for (const childId of node.children) {
       const child = graph.get(childId);
-      if (child?.data.componentType === 'worker') {
+      if (child?.data.componentType === "worker") {
         const workerService = getServiceById(child.data.config.serviceId);
-        const workerMaxRps = child.data.config.customMaxRps ?? workerService?.maxRps ?? 500;
-        const workerLatencyMs = child.data.config.customLatencyMs ?? workerService?.baseLatencyMs ?? 100;
+        const workerMaxRps =
+          child.data.config.customMaxRps ?? workerService?.maxRps ?? 500;
+        const workerLatencyMs =
+          child.data.config.customLatencyMs ??
+          workerService?.baseLatencyMs ??
+          100;
         totalCapacityRps += Math.min(drainRatePerWorkerPerSec, workerMaxRps);
         totalLatencyMs += workerLatencyMs;
         workerNodeIds.push(childId);
@@ -413,16 +507,23 @@ export function prepareSimulation(
   // ── Patch queue & worker node metrics with realistic RPS ────────────────────
   if (queueWorker && queueNodeId) {
     const rlRefillRate = rlNodeFull?.data.config.rateLimitRefillRate ?? null;
-    const queueInboundRps = rlRefillRate !== null
-      ? Math.max(0, totalRps - rlRefillRate)
-      : (nodeRpsMap.get(queueNodeId) ?? totalRps);
+    const queueInboundRps =
+      rlRefillRate !== null
+        ? Math.max(0, totalRps - rlRefillRate)
+        : (nodeRpsMap.get(queueNodeId) ?? totalRps);
     const totalDrainRps = queueWorker.workerCapacityRps;
 
     const queueNode = graph.get(queueNodeId);
     if (queueNode) {
       const queueService = getServiceById(queueNode.data.config.serviceId);
-      const queueMaxRps = queueNode.data.config.customMaxRps ?? queueService?.maxRps ?? 30000;
-      const queueLatency = getEffectiveLatency(queueNode.data, queueInboundRps);
+      const queueMaxRps =
+        queueNode.data.config.customMaxRps ?? queueService?.maxRps ?? 30000;
+      // NEW: pass payload size here too, so the queue's own latency scales correctly
+      const queueLatency = getEffectiveLatency(
+        queueNode.data,
+        queueInboundRps,
+        params.payloadSizeMB,
+      );
       const queueUtil = Math.min((queueInboundRps / queueMaxRps) * 100, 100);
       nodeMetrics[queueNodeId] = {
         avgLatencyMs: Math.round(queueLatency * 100) / 100,
@@ -433,7 +534,10 @@ export function prepareSimulation(
         costPerMonth: nodeMetrics[queueNodeId]?.costPerMonth ?? 0,
         isBottleneck: queueUtil > 80,
         errorRate: 0,
-        queueDepth: Math.round(queueInboundRps * ((queueNode.data.config.queueProcessingTimeMs ?? 100) / 1000)),
+        queueDepth: Math.round(
+          queueInboundRps *
+            ((queueNode.data.config.queueProcessingTimeMs ?? 100) / 1000),
+        ),
       };
     }
 
@@ -442,8 +546,14 @@ export function prepareSimulation(
       const workerNode = graph.get(wId);
       if (!workerNode) continue;
       const workerService = getServiceById(workerNode.data.config.serviceId);
-      const workerMaxRps = workerNode.data.config.customMaxRps ?? workerService?.maxRps ?? 500;
-      const workerLatency = getEffectiveLatency(workerNode.data, rpsPerWorker);
+      const workerMaxRps =
+        workerNode.data.config.customMaxRps ?? workerService?.maxRps ?? 500;
+      // NEW: workers process the payload too, so they need the same scaling
+      const workerLatency = getEffectiveLatency(
+        workerNode.data,
+        rpsPerWorker,
+        params.payloadSizeMB,
+      );
       const workerUtil = Math.min((rpsPerWorker / workerMaxRps) * 100, 100);
       nodeMetrics[wId] = {
         avgLatencyMs: Math.round(workerLatency * 100) / 100,
@@ -471,7 +581,10 @@ export function prepareSimulation(
       const m = nodeMetrics[nodeId];
       if (m) {
         pathLatency += m.avgLatencyMs;
-        nodeLatencyContributions.set(nodeId, Math.max(nodeLatencyContributions.get(nodeId) ?? 0, m.avgLatencyMs));
+        nodeLatencyContributions.set(
+          nodeId,
+          Math.max(nodeLatencyContributions.get(nodeId) ?? 0, m.avgLatencyMs),
+        );
       }
     }
     maxPathLatency = Math.max(maxPathLatency, pathLatency);
@@ -482,13 +595,17 @@ export function prepareSimulation(
   const latencyBreakdown: LatencyBreakdownItem[] = [];
   for (const [nodeId, latency] of nodeLatencyContributions) {
     const gn = graph.get(nodeId);
-    if (gn) latencyBreakdown.push({
-      nodeId,
-      nodeLabel: gn.data.label,
-      componentType: gn.data.componentType,
-      avgLatencyMs: Math.round(latency * 100) / 100,
-      percentOfTotal: totalLatency > 0 ? Math.round((latency / totalLatency) * 10000) / 100 : 0,
-    });
+    if (gn)
+      latencyBreakdown.push({
+        nodeId,
+        nodeLabel: gn.data.label,
+        componentType: gn.data.componentType,
+        avgLatencyMs: Math.round(latency * 100) / 100,
+        percentOfTotal:
+          totalLatency > 0
+            ? Math.round((latency / totalLatency) * 10000) / 100
+            : 0,
+      });
   }
   latencyBreakdown.sort((a, b) => b.avgLatencyMs - a.avgLatencyMs);
 
@@ -497,15 +614,21 @@ export function prepareSimulation(
     if (!metrics.isBottleneck) continue;
     const gn = graph.get(nodeId);
     if (!gn) continue;
-    let suggestion = 'Increase instance count or upgrade to a higher tier';
-    if (metrics.utilizationPercent > 95) suggestion = `CRITICAL: At ${metrics.utilizationPercent.toFixed(0)}% utilization. Immediately scale up or upgrade tier.`;
-    else if (gn.data.componentType === 'cache') suggestion = 'Improve cache hit rate or add more cache nodes';
-    else if (gn.data.componentType === 'database') suggestion = 'Add read replicas, implement caching layer, or upgrade instance';
-    else if (gn.data.componentType === 'message_queue') suggestion = 'Add more consumers/workers or upgrade to a higher-throughput queue';
+    let suggestion = "Increase instance count or upgrade to a higher tier";
+    if (metrics.utilizationPercent > 95)
+      suggestion = `CRITICAL: At ${metrics.utilizationPercent.toFixed(0)}% utilization. Immediately scale up or upgrade tier.`;
+    else if (gn.data.componentType === "cache")
+      suggestion = "Improve cache hit rate or add more cache nodes";
+    else if (gn.data.componentType === "database")
+      suggestion =
+        "Add read replicas, implement caching layer, or upgrade instance";
+    else if (gn.data.componentType === "message_queue")
+      suggestion =
+        "Add more consumers/workers or upgrade to a higher-throughput queue";
     bottlenecks.push({
       nodeId,
       nodeLabel: gn.data.label,
-      reason: `${metrics.utilizationPercent.toFixed(0)}% utilization (>${metrics.utilizationPercent > 95 ? '95' : '80'}% threshold)`,
+      reason: `${metrics.utilizationPercent.toFixed(0)}% utilization (>${metrics.utilizationPercent > 95 ? "95" : "80"}% threshold)`,
       utilization: metrics.utilizationPercent,
       suggestion,
     });
@@ -523,15 +646,29 @@ export function prepareSimulation(
     : null;
   const rlNode = rlNodeFull ? { config: rlNodeFull.data.config } : null;
 
-  const overloadErrorFrac = Math.max(0, ...Object.values(nodeMetrics).map((m) => (m.errorRate ?? 0) / 100));
+  const overloadErrorFrac = Math.max(
+    0,
+    ...Object.values(nodeMetrics).map((m) => (m.errorRate ?? 0) / 100),
+  );
   const effectiveMaxRps = Math.min(
-    ...Object.entries(nodeMetrics).filter(([, m]) => m.throughputRps > 0).map(([, m]) => m.throughputRps)
+    ...Object.entries(nodeMetrics)
+      .filter(([, m]) => m.throughputRps > 0)
+      .map(([, m]) => m.throughputRps),
   );
 
   return {
-    nodeMetrics, latencyBreakdown, bottlenecks, totalCostPerHour, totalRps, maxPathLatency,
-    overloadErrorFrac, rlStates, rlNode, concurrentUsers: params.concurrentUsers, effectiveMaxRps,
-    loadProfile: params.loadProfile ?? 'constant',
+    nodeMetrics,
+    latencyBreakdown,
+    bottlenecks,
+    totalCostPerHour,
+    totalRps,
+    maxPathLatency,
+    overloadErrorFrac,
+    rlStates,
+    rlNode,
+    concurrentUsers: params.concurrentUsers,
+    effectiveMaxRps,
+    loadProfile: params.loadProfile ?? "constant",
     simulationDurationSeconds: params.simulationDurationSeconds,
     spikeFrequency: params.spikeFrequency ?? 3,
     spikeIntensity: params.spikeIntensity ?? 3,
@@ -546,19 +683,34 @@ export function simulateTick(
   second: number,
 ): TimeSeriesDataPoint {
   const {
-    totalRps, maxPathLatency, overloadErrorFrac, rlStates, rlNode,
-    loadProfile, simulationDurationSeconds, queueWorker, concurrentUsers,
+    totalRps,
+    maxPathLatency,
+    overloadErrorFrac,
+    rlStates,
+    rlNode,
+    loadProfile,
+    simulationDurationSeconds,
+    queueWorker,
+    concurrentUsers,
   } = ctx;
 
   // Apply load profile to get RPS for this tick
   const multiplier = getLoadMultiplier(
-    loadProfile, second, simulationDurationSeconds,
-    ctx.spikeFrequency, ctx.spikeIntensity,
+    loadProfile,
+    second,
+    simulationDurationSeconds,
+    ctx.spikeFrequency,
+    ctx.spikeIntensity,
   );
   const tickRps = totalRps * multiplier;
   const requestsThisSec = Math.round(tickRps);
 
-  let stepSuccess = 0, stepFailed = 0, stepRateLimited = 0, stepQueued = 0, stepDrained = 0, stepLatencySum = 0;
+  let stepSuccess = 0,
+    stepFailed = 0,
+    stepRateLimited = 0,
+    stepQueued = 0,
+    stepDrained = 0,
+    stepLatencySum = 0;
 
   for (let r = 0; r < requestsThisSec; r++) {
     const nowSec = second + r / Math.max(requestsThisSec, 1);
@@ -566,7 +718,11 @@ export function simulateTick(
     const userIdx = r % Math.max(concurrentUsers, 1);
     let isRateLimited = false;
     if (rlNode && rlStates) {
-      isRateLimited = !checkRateLimitSim(rlNode.config, rlStates[userIdx], nowSec);
+      isRateLimited = !checkRateLimitSim(
+        rlNode.config,
+        rlStates[userIdx],
+        nowSec,
+      );
     }
     if (isRateLimited) {
       if (queueWorker && ctx.queueDepth < queueWorker.queueMaxMessages) {
@@ -592,7 +748,10 @@ export function simulateTick(
     ctx.queueDepth -= drained;
     stepDrained += drained;
     stepSuccess += drained;
-    stepLatencySum += drained * (maxPathLatency + queueWorker.workerLatencyMs) * (1 + (Math.random() - 0.5) * 0.1);
+    stepLatencySum +=
+      drained *
+      (maxPathLatency + queueWorker.workerLatencyMs) *
+      (1 + (Math.random() - 0.5) * 0.1);
   }
 
   return {
@@ -604,7 +763,10 @@ export function simulateTick(
     drained: stepDrained,
     queueDepth: ctx.queueDepth,
     rps: requestsThisSec,
-    avgLatencyMs: stepSuccess > 0 ? Math.round((stepLatencySum / stepSuccess) * 100) / 100 : 0,
+    avgLatencyMs:
+      stepSuccess > 0
+        ? Math.round((stepLatencySum / stepSuccess) * 100) / 100
+        : 0,
   };
 }
 
@@ -613,9 +775,21 @@ export function finalizeSimulation(
   timeSeries: TimeSeriesDataPoint[],
   params: SimulationParams,
 ): SimulationResult {
-  const { nodeMetrics, latencyBreakdown, bottlenecks, totalCostPerHour, totalRps, maxPathLatency, effectiveMaxRps } = ctx;
+  const {
+    nodeMetrics,
+    latencyBreakdown,
+    bottlenecks,
+    totalCostPerHour,
+    totalRps,
+    maxPathLatency,
+    effectiveMaxRps,
+  } = ctx;
 
-  let totalSuccessful = 0, totalFailed = 0, totalRateLimited = 0, totalQueued = 0, totalDrained = 0;
+  let totalSuccessful = 0,
+    totalFailed = 0,
+    totalRateLimited = 0,
+    totalQueued = 0,
+    totalDrained = 0;
   const latencySamples: number[] = [];
   for (const pt of timeSeries) {
     totalSuccessful += pt.successful;
@@ -628,13 +802,18 @@ export function finalizeSimulation(
   // Still-buffered = total enqueued minus total drained (items never yet processed)
   const stillBuffered = totalQueued - totalDrained;
 
-  const avgEndToEndLatencyMs = latencySamples.length > 0
-    ? Math.round((latencySamples.reduce((a, b) => a + b, 0) / latencySamples.length) * 100) / 100
-    : Math.round(maxPathLatency * 100) / 100;
+  const avgEndToEndLatencyMs =
+    latencySamples.length > 0
+      ? Math.round(
+          (latencySamples.reduce((a, b) => a + b, 0) / latencySamples.length) *
+            100,
+        ) / 100
+      : Math.round(maxPathLatency * 100) / 100;
   const sorted = [...latencySamples].sort((a, b) => a - b);
-  const p99EndToEndLatencyMs = sorted.length > 0
-    ? Math.round(sorted[Math.floor(sorted.length * 0.99)] * 100) / 100
-    : Math.round(maxPathLatency * 2.5 * 100) / 100;
+  const p99EndToEndLatencyMs =
+    sorted.length > 0
+      ? Math.round(sorted[Math.floor(sorted.length * 0.99)] * 100) / 100
+      : Math.round(maxPathLatency * 2.5 * 100) / 100;
 
   const resolvedRequests = totalSuccessful + totalFailed + totalRateLimited;
   return {
@@ -645,8 +824,15 @@ export function finalizeSimulation(
     queuedRequests: stillBuffered,
     avgEndToEndLatencyMs,
     p99EndToEndLatencyMs,
-    maxThroughputRps: Math.round(effectiveMaxRps === Infinity ? totalRps : effectiveMaxRps),
-    actualThroughputRps: Math.round(Math.min(totalRps, effectiveMaxRps === Infinity ? totalRps : effectiveMaxRps)),
+    maxThroughputRps: Math.round(
+      effectiveMaxRps === Infinity ? totalRps : effectiveMaxRps,
+    ),
+    actualThroughputRps: Math.round(
+      Math.min(
+        totalRps,
+        effectiveMaxRps === Infinity ? totalRps : effectiveMaxRps,
+      ),
+    ),
     totalCostPerHour: Math.round(totalCostPerHour * 10000) / 10000,
     totalCostPerMonth: Math.round(totalCostPerHour * 730 * 100) / 100,
     bottlenecks,
@@ -659,7 +845,7 @@ export function finalizeSimulation(
 export function runSimulation(
   nodes: Node<SimulationNodeData>[],
   edges: Edge[],
-  params: SimulationParams
+  params: SimulationParams,
 ): SimulationResult {
   const ctx = prepareSimulation(nodes, edges, params);
   const timeSeries: TimeSeriesDataPoint[] = [];
