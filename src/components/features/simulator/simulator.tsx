@@ -643,6 +643,8 @@ if (command.trim() === 'fit_view') {
             selectedDesignName={currentDesignName}
             onToggleTerminal={() => setIsTerminalOpen(!isTerminalOpen)}
             isTerminalOpen={isTerminalOpen}
+            simulationParams={simulationParams}
+            nodes={nodes}
           />
 
           {/* CANVAS */}

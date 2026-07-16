@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Select,
   SelectContent,
@@ -9,7 +9,10 @@ import {
 } from '@/components/ui/select';
 import { PRESETS } from '@/data';
 import { Button } from '@/components/ui/button';
-import { Terminal } from 'lucide-react';
+import { Terminal, Download } from 'lucide-react';
+import { ExportDialog } from './export-dialog';
+import { SimulationParams, SimulationNodeData } from '@/types';
+import { Node } from '@xyflow/react';
 
 interface Props {
   loadPreset: (id: string | null) => void;
@@ -18,9 +21,13 @@ interface Props {
   selectedDesignName: string | null;
   onToggleTerminal: () => void;
   isTerminalOpen: boolean;
+  simulationParams?: SimulationParams | null;
+  nodes?: Node<SimulationNodeData>[] | null;
 }
 
-export default function CanvasTopBar({ loadPreset, onSave, onReset, selectedDesignName, onToggleTerminal, isTerminalOpen }: Props) {
+export default function CanvasTopBar({ loadPreset, onSave, onReset, selectedDesignName, onToggleTerminal, isTerminalOpen, simulationParams, nodes }: Props) {
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+
   return (
     <div className="h-12 border-b bg-white flex items-center justify-between px-4">
 
@@ -92,6 +99,17 @@ export default function CanvasTopBar({ loadPreset, onSave, onReset, selectedDesi
 
         <Button
         size="default"
+        onClick={() => setIsExportDialogOpen(true)}
+        className="bg-blue-500/20 text-blue-700 border border-blue-200 
+        hover:bg-blue-500/30 hover:border-blue-400
+        font-medium transition-all duration-200 flex items-center gap-2"
+        >
+        <Download className="w-4 h-4" />
+        Export
+        </Button>
+
+        <Button
+        size="default"
         onClick={onSave}
         className="bg-green-500/20 text-green-700 border border-green-200 
         hover:bg-green-500/30 hover:border-green-400
@@ -111,6 +129,14 @@ export default function CanvasTopBar({ loadPreset, onSave, onReset, selectedDesi
         </Button>
 
     </div>
+
+    <ExportDialog
+      open={isExportDialogOpen}
+      onOpenChange={setIsExportDialogOpen}
+      projectName={selectedDesignName}
+      simulationParams={simulationParams}
+      nodes={nodes}
+    />
 
     </div>
   );
