@@ -59,9 +59,8 @@ export default function ConfigPanel({
     });
   };
 
-  // Handles the user picking a new value from the Time Complexity dropdown.
-  // Same pattern as handleServiceChange right above it.
-  const handleTimeComplexityChange = (value: string) => {
+  const handleTimeComplexityChange = (value: string | null) => {
+    if (!value) return; // guard against null, same pattern as handleServiceChange above
     onUpdate(node.id, {
       config: { ...data.config, timeComplexity: value as TimeComplexity },
     });
@@ -147,8 +146,8 @@ export default function ConfigPanel({
     should scale as payload size grows. Sits right after the Service
     dropdown since they're closely related settings. */}
 
-    {/*  Preview trigger: minor comment addition, no functional change */}
-    
+      {/*  Preview trigger: minor comment addition, no functional change */}
+
       <div className="space-y-1.5">
         <Label className="text-xs">Time Complexity</Label>
         <Select
