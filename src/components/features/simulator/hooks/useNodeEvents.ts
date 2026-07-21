@@ -3,6 +3,7 @@ import { Node, Edge, Connection, ReactFlowInstance, addEdge } from '@xyflow/reac
 import { SimulationNodeData, ComponentType } from '@/types';
 
 interface UseNodeEventsProps {
+  selectedNode: Node<SimulationNodeData> | null;
   selectedNodes: string[];
   setSelectedNode: (node: Node<SimulationNodeData> | null) => void;
   setSelectedNodes: React.Dispatch<React.SetStateAction<string[]>>;
@@ -16,6 +17,7 @@ interface UseNodeEventsProps {
 }
 
 export function useNodeEvents({
+  selectedNode,
   selectedNodes,
   setSelectedNode,
   setSelectedNodes,
@@ -112,13 +114,16 @@ export function useNodeEvents({
   const onNodeContextMenu = useCallback(
     (event: React.MouseEvent, node: Node) => {
       event.preventDefault();
+      const isSelected =
+        selectedNode?.id === node.id || selectedNodes.includes(node.id);
+      if (!isSelected) return;
       setContextMenu({
         id: node.id,
         x: event.clientX,
         y: event.clientY,
       });
     },
-    [setContextMenu]
+    [setContextMenu, selectedNode, selectedNodes]
   );
 
   return {
