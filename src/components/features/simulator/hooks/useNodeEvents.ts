@@ -3,6 +3,7 @@ import { Node, Edge, Connection, ReactFlowInstance, addEdge } from '@xyflow/reac
 import { SimulationNodeData, ComponentType } from '@/types';
 
 interface UseNodeEventsProps {
+  selectedNode: Node<SimulationNodeData> | null;
   selectedNodes: string[];
   setSelectedNode: (node: Node<SimulationNodeData> | null) => void;
   setSelectedNodes: React.Dispatch<React.SetStateAction<string[]>>;
@@ -12,9 +13,11 @@ interface UseNodeEventsProps {
   reactFlowRef: React.MutableRefObject<ReactFlowInstance<Node<SimulationNodeData>, Edge> | null>;
   setEdges: any;
   saveToHistory: () => void;
+  setContextMenu: (menu: { id: string; x: number; y: number } | null) => void;
 }
 
 export function useNodeEvents({
+  selectedNode,
   selectedNodes,
   setSelectedNode,
   setSelectedNodes,
@@ -24,6 +27,7 @@ export function useNodeEvents({
   reactFlowRef,
   setEdges,
   saveToHistory,
+  setContextMenu,
 }: UseNodeEventsProps) {
   const onNodeClick = useCallback(
     (event: React.MouseEvent, node: Node) => {
@@ -52,7 +56,8 @@ export function useNodeEvents({
     setSelectedNode(null);
     setSelectedEdge(null);
     setSelectedNodes([]);
-  }, [setSelectedNode, setSelectedEdge, setSelectedNodes]);
+    setContextMenu(null);
+  }, [setSelectedNode, setSelectedEdge, setSelectedNodes, setContextMenu]);
 
   const onEdgeClick = useCallback(
     (_: React.MouseEvent, edge: Edge) => {
@@ -106,6 +111,21 @@ export function useNodeEvents({
     [addComponent]
   );
 
+  const onNodeContextMenu = useCallback(
+    (event: React.MouseEvent, node: Node) => {
+      event.preventDefault();
+      const isSelected =
+        selectedNode?.id === node.id || selectedNodes.includes(node.id);
+      if (!isSelected) return;
+      setContextMenu({
+        id: node.id,
+        x: event.clientX,
+        y: event.clientY,
+      });
+    },
+    [setContextMenu, selectedNode, selectedNodes]
+  );
+
   return {
     onNodeClick,
     onPaneClick,
@@ -113,5 +133,6 @@ export function useNodeEvents({
     onConnect,
     onDragOver,
     onDrop,
+    onNodeContextMenu,
   };
 }

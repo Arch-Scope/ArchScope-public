@@ -29,6 +29,7 @@ import SimulationTopBar from './simulation-topbar';
 import TerminalPanel from './terminal-panel';
 import { parseAQLCommand } from '@/lib/aql/parser';
 import { executeConfigCommand } from '@/lib/aql/handlers';
+import NodeContextMenu from './node-context-menu';
 
 export default function Simulator() {
   // Local State
@@ -37,6 +38,7 @@ export default function Simulator() {
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [currentDesignName, setCurrentDesignName] = useState<string | null>(null);
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   
 
   // Custom Hooks - State Management
@@ -64,6 +66,7 @@ export default function Simulator() {
     redo,
     copy,
     paste,
+    duplicate,
     saveToHistory,
   } = simulatorState;
 
@@ -458,6 +461,7 @@ if (command.trim() === 'fit_view') {
   const { isSelecting, selectionBox, handleSelectionStart, handleSelectionMove, handleSelectionEnd } = selection;
 
   const nodeEvents = useNodeEvents({
+    selectedNode,
     selectedNodes,
     setSelectedNode,
     setSelectedNodes,
@@ -467,8 +471,9 @@ if (command.trim() === 'fit_view') {
     reactFlowRef,
     setEdges,
     saveToHistory,
+    setContextMenu,
   });
-  const { onNodeClick, onPaneClick, onEdgeClick, onConnect, onDragOver, onDrop } = nodeEvents;
+  const { onNodeClick, onPaneClick, onEdgeClick, onConnect, onDragOver, onDrop, onNodeContextMenu } = nodeEvents;
 
   // Custom Hooks - Keyboard Shortcuts
   useKeyboardShortcuts({
@@ -483,6 +488,7 @@ if (command.trim() === 'fit_view') {
     redo,
     copy,
     paste,
+    duplicate,
     setSelectedNode,
     setSelectedNodes,
     setSelectedEdge,
@@ -659,6 +665,7 @@ if (command.trim() === 'fit_view') {
             onPaneClick={onPaneClick}
             onDragOver={onDragOver}
             onDrop={onDrop}
+            onNodeContextMenu={onNodeContextMenu}
             reactFlowRef={reactFlowRef}
             handleSelectionStart={handleSelectionStart}
             handleSelectionMove={handleSelectionMove}
@@ -669,6 +676,16 @@ if (command.trim() === 'fit_view') {
             isMinimapCollapsed={isMinimapCollapsed}
             setIsMinimapCollapsed={setIsMinimapCollapsed}
           />
+          {contextMenu && (
+            <NodeContextMenu
+              x={contextMenu.x}
+              y={contextMenu.y}
+              onClose={() => setContextMenu(null)}
+              onDuplicate={duplicate}
+              onCopy={copy}
+              onDelete={() => deleteNode(contextMenu.id)}
+            />
+          )}
           
           {/* TERMINAL PANEL */}
           {isTerminalOpen && (
