@@ -128,79 +128,97 @@ export default function ConfigPanel({ node, onUpdate, onDelete }: ConfigPanelPro
       <Separator />
 
       {/* Service-specific configs */}
-      {selectedService && (
-        <div className="space-y-3">
-          <h4 className="text-xs font-semibold text-gray-500 uppercase">Specs (per instance)</h4>
+{selectedService && (
+  <div className="space-y-3">
+    <h4 className="text-xs font-semibold text-gray-500 uppercase">
+      Specs (per instance)
+    </h4>
 
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="bg-gray-50 rounded-md p-2">
-              <div className="text-gray-400">Base Latency</div>
-              <div className="font-mono font-semibold">{selectedService.baseLatencyMs}ms</div>
-            </div>
-            <div className="bg-gray-50 rounded-md p-2">
-              <div className="text-gray-400">Max RPS</div>
-              <div className="font-mono font-semibold">
-                {selectedService.maxRps === Infinity
-                  ? '∞'
-                  : selectedService.maxRps.toLocaleString()}
-              </div>
-            </div>
-            <div className="bg-gray-50 rounded-md p-2">
-              <div className="text-gray-400">Throughput</div>
-              <div className="font-mono font-semibold">
-                {selectedService.maxThroughputMBps === Infinity
-                  ? '∞'
-                  : `${selectedService.maxThroughputMBps} MB/s`}
-              </div>
-            </div>
-            <div className="bg-gray-50 rounded-md p-2">
-              <div className="text-gray-400">Cost/hr</div>
-              <div className="font-mono font-semibold">
-                ${(data.config.customCostPerHour ?? selectedService.baseCostPerHour).toFixed(4)}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+    {/* Base Latency */}
+    <div className="space-y-1.5">
+      <Label className="text-xs">Latency (ms)</Label>
+      <Input
+        type="number"
+        value={data.config.customLatencyMs ?? selectedService.baseLatencyMs}
+        onChange={(e) =>
+          onUpdate(node.id, {
+            config: {
+              ...data.config,
+              customLatencyMs: Number(e.target.value),
+            },
+          })
+        }
+        className="h-8 text-sm"
+      />
+    </div>
 
-      {/* Custom Cost Configuration */}
-      <Separator />
-      <div className="space-y-3">
-        <h4 className="text-xs font-semibold text-gray-500 uppercase">Cost Configuration</h4>
-        
-        <div className="space-y-1.5">
-          <Label className="text-xs">Custom Cost per Hour ($)</Label>
-          <Input
-            type="number"
-            step="0.001"
-            min="0"
-            placeholder={selectedService ? (data.config.customCostPerHour ?? selectedService.baseCostPerHour).toFixed(4) : ''}
-            value={data.config.customCostPerHour ?? ''}
-            onChange={(e) => {
-              const val = e.target.value;
-              if (val === '') {
-                onUpdate(node.id, { config: { ...data.config, customCostPerHour: undefined } });
-              } else {
-                const num = parseFloat(val);
-                if (!isNaN(num) && num >= 0) {
-                  onUpdate(node.id, { config: { ...data.config, customCostPerHour: num } });
-                }
-              }
-            }}
-            className="h-8 text-xs"
-          />
-          <p className="text-[10px] text-gray-400">
-            Override default pricing. Leave empty to use service default.
-          </p>
-          {selectedService && (
-            <p className="text-[10px] text-gray-500">
-              Default: ${selectedService.baseCostPerHour.toFixed(4)}/hr | 
-              Updated: {selectedService.pricingLastUpdated} | 
-              {selectedService.pricingDisclaimer}
-            </p>
-          )}
-        </div>
-      </div>
+    {/* Max RPS */}
+    <div className="space-y-1.5">
+      <Label className="text-xs">Max RPS</Label>
+      <Input
+        type="number"
+        value={data.config.customMaxRps ?? selectedService.maxRps}
+        onChange={(e) =>
+          onUpdate(node.id, {
+            config: {
+              ...data.config,
+              customMaxRps: Number(e.target.value),
+            },
+          })
+        }
+        className="h-8 text-sm"
+      />
+    </div>
+
+    {/* Throughput */}
+    <div className="space-y-1.5">
+     <Label className="text-xs">Throughput (MB/s)</Label>
+
+<Input
+  type="number"
+  min="0"
+  value={data.config.customThroughputMBps ?? selectedService.maxThroughputMBps}
+  onChange={(e) =>
+    onUpdate(node.id, {
+      config: {
+        ...data.config,
+        customThroughputMBps: Number(e.target.value),
+      },
+    })
+  }
+  className="h-8 text-sm"
+/>
+    </div>
+
+    {/* Cost */}
+    <div className="space-y-1.5">
+      <Label className="text-xs">Cost / Hour ($)</Label>
+      <Input
+        type="number"
+        step="0.001"
+        min="0"
+        value={
+          data.config.customCostPerHour ??
+          selectedService.baseCostPerHour
+        }
+        onChange={(e) =>
+          onUpdate(node.id, {
+            config: {
+              ...data.config,
+              customCostPerHour: Number(e.target.value),
+            },
+          })
+        }
+        className="h-8 text-sm"
+      />
+    </div>
+
+    <p className="text-[10px] text-gray-500">
+      The default values are for simulation purpose only, override with
+      actual values for accurate results.
+    </p>
+  </div>
+)}
 
       {/* Cache-specific */}
       {data.componentType === 'cache' && (

@@ -31,19 +31,25 @@ export interface AwsServiceOption {
 
 export interface ComponentConfig {
   serviceId: string; // which AwsServiceOption is selected
+
   customLatencyMs?: number;
   customMaxRps?: number;
+  customThroughputMBps?: number;
   customCostPerHour?: number;
+
   cacheTtlSeconds?: number; // for cache components
   cacheHitRate?: number; // 0-1 for cache components
+
   queueMaxMessages?: number; // for message queue
   queueProcessingTimeMs?: number; // for message queue consumer
+
   // Rate limiter config
   rateLimitAlgorithm?: RateLimitAlgorithm;
   rateLimitBucketSize?: number; // token bucket: max tokens / leaky bucket: bucket capacity
   rateLimitRefillRate?: number; // token bucket: tokens/sec refill rate
   rateLimitWindowSeconds?: number; // fixed/sliding window: window duration in seconds
   rateLimitMaxRequests?: number; // fixed/sliding window: max requests per window
+
   // Redis counter config
   redisCounterTtlSeconds?: number; // how long before counter expires and resets
 }
