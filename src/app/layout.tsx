@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from '@/context/auth';
 import AuthModal from '@/components/features/auth/auth-modal';
+import { AppToaster } from '@/components/ui/toaster';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,6 +33,7 @@ export default function RootLayout({
       <body className="min-h-screen bg-gray-50 overflow-auto">
         <AuthProvider>
           <AuthModal />
+          <AppToaster />
           {children}
         </AuthProvider>
       </body>
