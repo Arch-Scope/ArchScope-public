@@ -172,13 +172,22 @@ export default function ConfigPanel({ node, onUpdate, onDelete }: ConfigPanelPro
 
     {/* Throughput */}
     <div className="space-y-1.5">
-      <Label className="text-xs">Throughput (MB/s)</Label>
-      <Input
-        type="number"
-        value={selectedService.maxThroughputMBps}
-        disabled
-        className="h-8 text-sm"
-      />
+     <Label className="text-xs">Throughput (MB/s)</Label>
+
+<Input
+  type="number"
+  min="0"
+  value={data.config.customThroughputMBps ?? selectedService.maxThroughputMBps}
+  onChange={(e) =>
+    onUpdate(node.id, {
+      config: {
+        ...data.config,
+        customThroughputMBps: Number(e.target.value),
+      },
+    })
+  }
+  className="h-8 text-sm"
+/>
     </div>
 
     {/* Cost */}
