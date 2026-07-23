@@ -25,6 +25,7 @@ model User {
 model Design {
   id        String   @id @default(uuid())
   name      String
+  description String?
   nodes     Json
   edges     Json
   createdAt DateTime @default(now())

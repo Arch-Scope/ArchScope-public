@@ -30,7 +30,7 @@ export async function getUserDesigns(token: string): Promise<DesignPreset[]> {
     return data.designs.map((design: any) => ({
       id: design.id,
       name: design.name,
-      description: '', // DB designs don't have descriptions
+      description: design.description || '',
       nodes: design.nodes,
       edges: design.edges,
       simulationParams: {
@@ -108,6 +108,7 @@ export async function saveUserDesign(token: string, preset: DesignPreset): Promi
       },
       body: JSON.stringify({
         name: preset.name,
+        description: preset.description,
         nodes: preset.nodes,
         edges: preset.edges,
       }),
