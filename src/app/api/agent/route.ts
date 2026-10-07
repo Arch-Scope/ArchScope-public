@@ -1,6 +1,39 @@
 import { NextResponse } from 'next/server';
 import { buildAgentGraph } from '@/lib/agent/graph';
 import { CanvasNode, CanvasEdge } from '@/lib/agent/state';
+import { parseJsonRequest, rateLimitRequest } from '@/backend/utils/api-security';
+import { z } from 'zod';
+
+const nodeSchema = z.object({
+  id: z.string().min(1).max(100),
+  label: z.string().max(200).optional(),
+  componentType: z.string().min(1).max(64),
+  config: z.record(z.string(), z.json()).optional(),
+}).strict();
+
+const edgeSchema = z.object({
+  source: z.string().min(1).max(100),
+  target: z.string().min(1).max(100),
+  animated: z.boolean().optional(),
+}).strict();
+
+const agentRequestSchema = z.object({
+  sessionId: z.string().uuid(),
+  message: z.string().trim().min(1).max(4_000),
+  currentNodes: z.array(nodeSchema).max(100).default([]),
+  currentEdges: z.array(edgeSchema).max(300).default([]),
+}).strict().superRefine((body, context) => {
+  const nodeIds = new Set(body.currentNodes.map((node) => node.id));
+  for (const [index, edge] of body.currentEdges.entries()) {
+    if (!nodeIds.has(edge.source) || !nodeIds.has(edge.target)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['currentEdges', index],
+        message: 'Edges must reference nodes in the request',
+      });
+    }
+  }
+});
 
 /**
  * POST /api/agent
@@ -11,28 +44,29 @@ import { CanvasNode, CanvasEdge } from '@/lib/agent/state';
  */
 export async function POST(req: Request) {
   try {
-    const { sessionId, message, currentNodes, currentEdges } = await req.json();
+    const limited = rateLimitRequest(req, 'agent', 10, 60_000);
+    if (limited) return limited;
 
-    if (!message) {
-      return NextResponse.json({ error: 'No message provided' }, { status: 400 });
-    }
+    const parsed = await parseJsonRequest(req, agentRequestSchema, 256 * 1024);
+    if (!parsed.ok) return parsed.response;
+    const { sessionId, message, currentNodes, currentEdges } = parsed.data;
 
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json(
-        { error: 'OPENAI_API_KEY is not configured. Add it to .env.local' },
-        { status: 500 }
+        { error: 'Agent service is temporarily unavailable' },
+        { status: 503 }
       );
     }
 
     // Map frontend node/edge shapes to agent state types
-    const nodes: CanvasNode[] = (currentNodes || []).map((n: any) => ({
+    const nodes: CanvasNode[] = currentNodes.map((n) => ({
       id: n.id,
       label: n.label || n.id,
       componentType: n.componentType,
       config: n.config || {},
     }));
 
-    const edges: CanvasEdge[] = (currentEdges || []).map((e: any) => ({
+    const edges: CanvasEdge[] = currentEdges.map((e) => ({
       source: e.source,
       target: e.target,
       animated: e.animated || false,
@@ -65,17 +99,11 @@ export async function POST(req: Request) {
       explanation: result.explanation,
       requirements: result.requirements,
     });
-  } catch (error: any) {
-    console.error('Agent API Error:', error);
-
-    // Surface useful error messages
-    const message =
-      error?.message?.includes('API key')
-        ? 'Invalid or missing OpenAI API key'
-        : error?.message?.includes('Rate limit')
-          ? 'OpenAI rate limit reached. Please wait a moment.'
-          : 'An error occurred while processing the agent request';
-
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch {
+    console.error('Agent API request failed');
+    return NextResponse.json(
+      { error: 'An error occurred while processing the agent request' },
+      { status: 500 },
+    );
   }
 }

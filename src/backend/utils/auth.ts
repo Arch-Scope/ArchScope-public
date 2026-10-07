@@ -7,9 +7,9 @@ export function getUserFromRequest(req: Request) :JwtUser | null {
 
   if (!authHeader) return null;
 
-  const token = authHeader.split(' ')[1]; // Bearer TOKEN
-
-  if (!token) return null;
+  const match = /^Bearer\s+(\S+)$/i.exec(authHeader.trim());
+  if (!match) return null;
+  const token = match[1];
 
   try {
     return verifyToken(token); // { userId, email }

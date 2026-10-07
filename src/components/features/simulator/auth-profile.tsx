@@ -31,7 +31,11 @@ export default function AuthProfile({ open, setOpen }: AuthProfileProps) {
 
   return (
     <div className="relative">
-      <div
+      <button
+        type="button"
+        aria-label={`Account menu for ${user.email}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
         onClick={() => setOpen(!open)}
         className={`w-8 h-8 rounded-full 
         ${color?.bg} ${color?.text} border ${color?.border}
@@ -41,11 +45,13 @@ export default function AuthProfile({ open, setOpen }: AuthProfileProps) {
         transition-all duration-200`}
       >
         {user.email[0].toUpperCase()}
-      </div>
+      </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 bg-white border rounded-md shadow-md">
+        <div role="menu" aria-label="Account" className="absolute right-0 mt-2 bg-white border rounded-md shadow-md">
           <button
+            type="button"
+            role="menuitem"
             onClick={() => {
               logout();
               setOpen(false);

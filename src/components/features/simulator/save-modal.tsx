@@ -2,6 +2,13 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 interface Props {
   isOpen: boolean;
@@ -18,35 +25,13 @@ export default function SaveModal({
   onSaveAsNew,
   hasExisting,
 }: Props) {
-  React.useEffect(() => {
-    if (isOpen) {
-      document.body.classList.add('menu-overlay-open');
-    } else {
-      document.body.classList.remove('menu-overlay-open');
-    }
-    return () => {
-      document.body.classList.remove('menu-overlay-open');
-    };
-  }, [isOpen]);
-
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center">
-
-      {/* overlay */}
-      <div
-        className="absolute inset-0 bg-black/30"
-        onClick={onClose}
-      />
-
-      {/* modal */}
-      <div className="relative bg-white rounded-xl shadow-2xl w-[320px] p-4 space-y-3">
-
-        <h2 className="text-sm font-semibold text-gray-800">
-          Save Design
-        </h2>
-
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="w-[320px]">
+        <DialogHeader>
+          <DialogTitle>Save Design</DialogTitle>
+          <DialogDescription>Choose how to save this design.</DialogDescription>
+        </DialogHeader>
         <div className="flex flex-col gap-2 mt-2">
 
           {hasExisting && (
@@ -72,7 +57,7 @@ export default function SaveModal({
           </Button>
 
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

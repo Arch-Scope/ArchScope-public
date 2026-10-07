@@ -39,13 +39,15 @@ export function useKeyboardShortcuts({
 }: UseKeyboardShortcutsProps) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      // Don't trigger shortcuts if user is typing in an input field
+      // Keep editor shortcuts from hijacking input, menu, and dialog controls.
       const activeElement = document.activeElement;
-      const isInputFocused = activeElement instanceof HTMLInputElement || 
-                           activeElement instanceof HTMLTextAreaElement ||
-                           (activeElement as HTMLElement)?.isContentEditable;
+      const isInteractiveElement = activeElement instanceof HTMLElement && (
+        activeElement.isContentEditable ||
+        activeElement.matches('input, textarea, select, button, a[href], [role="textbox"], [role="combobox"], [role="menuitem"], [role="dialog"]') ||
+        activeElement.closest('[role="dialog"], [role="menu"]') !== null
+      );
       
-      if (isInputFocused) {
+      if (isInteractiveElement) {
         return;
       }
 

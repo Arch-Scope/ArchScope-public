@@ -1,5 +1,5 @@
-import { Node, Edge } from "@xyflow/react";
-import {
+import type { Node, Edge } from "@xyflow/react";
+import type {
   SimulationNodeData,
   SimulationParams,
   SimulationResult,
@@ -29,7 +29,7 @@ function buildGraph(
   for (const node of nodes) {
     graph.set(node.id, {
       id: node.id,
-      data: node.data as SimulationNodeData,
+      data: node.data,
       children: [],
       parents: [],
     });
