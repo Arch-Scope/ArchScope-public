@@ -68,14 +68,16 @@ export default function DiagramCanvas({
   return (
     <div className="flex-1 relative z-0">
       {!isMinimapCollapsed && (
-        <div
+        <button
+          type="button"
+          aria-label="Collapse minimap"
           onClick={() => setIsMinimapCollapsed(true)}
           className="w-4 h-4 bg-white border-2 border-gray-300 rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-all cursor-pointer"
           style={{ position: 'absolute', bottom: '172px', right: '25px', zIndex: 9999 }}
           title="Collapse minimap"
         >
           <Minus className="w-2 h-2 text-gray-700" />
-        </div>
+        </button>
       )}
       <ReactFlow 
         style={{ zIndex: 0 }}
